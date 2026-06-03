@@ -1,5 +1,4 @@
-.claude
-.claudeDesign
+.claude*
 /requirements_*.md
 
 **/.env

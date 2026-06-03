@@ -44,7 +44,6 @@ export default function TopNav() {
           <span className="dot live" style={{ background: status === "running" ? "var(--c-blue)" : "var(--c-green)" }} />
           {status === "running" ? `${elapsedSec}s` : status}
         </div>
-        <div className="avatar">RA</div>
       </div>
     </header>
   );
