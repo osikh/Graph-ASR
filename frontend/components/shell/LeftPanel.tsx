@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function LeftPanel() {
-  const { status, question, events, nodes, confMin, confMax, disabledAgents, setConfRange, toggleAgent, submit, reset } = useSession();
+  const { status, question, events, nodes, confMin, confMax, disabledAgents, setConfRange, toggleAgent, submit, reset, stopSession } = useSession();
   const router = useRouter();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,23 +89,29 @@ export default function LeftPanel() {
         )}
 
         {(!isActive || isDone) && (
-          <>
-            <div className="prompt-row">
-              <input className="prompt-input" placeholder="Ask a question…" value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-              <button className="prompt-go" title="Run" onClick={handleSubmit} disabled={!input.trim() || loading}>
-                {loading ? "…" : "↵"}
-              </button>
-            </div>
-            {isDone && (
-              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button className="prompt-action-btn" onClick={handleRestart} disabled={loading}>↺ Run Again</button>
-                <button className="prompt-action-btn secondary" onClick={handleNew} disabled={loading}>New</button>
-              </div>
-            )}
-          </>
+          <div className="prompt-row">
+            <input className="prompt-input" placeholder="Ask a question…" value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          </div>
         )}
+
+        <div className="session-actions">
+          <button
+            className="session-action-btn primary"
+            onClick={handleRestart}
+            disabled={!isDone || !question || loading}
+          >
+            Run Again
+          </button>
+          <button
+            className={`session-action-btn ${status === "running" ? "cancel" : "ghost"}`}
+            onClick={!isActive ? handleSubmit : !isDone ? stopSession : handleNew}
+            disabled={(!isActive && !input.trim()) || loading}
+          >
+            {!isActive ? "Start" : !isDone ? "Cancel" : "New"}
+          </button>
+        </div>
       </div>
 
       <div className="lp-section grow">

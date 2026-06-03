@@ -451,11 +451,15 @@
 .sc-del { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 5px; border: 1px solid transparent; color: var(--text-3); background: transparent; cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .sc-del:hover { color: var(--c-red); background: oklch(0.65 0.20 25 / 0.12); border-color: oklch(0.65 0.20 25 / 0.30); }
 
-.prompt-action-btn { flex: 1; padding: 8px 0; border-radius: var(--radius-sm); border: 1px solid var(--accent-line); background: var(--accent-soft); color: var(--accent); font-size: 12px; font-family: var(--mono); cursor: pointer; transition: background .15s; }
-.prompt-action-btn:hover { background: oklch(0.62 0.19 222 / 0.22); }
-.prompt-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.prompt-action-btn.secondary { border-color: var(--line); background: var(--bg-2); color: var(--text-2); }
-.prompt-action-btn.secondary:hover { background: var(--bg-3); }
+.session-actions { display: flex; margin-top: 9px; border-radius: var(--radius-sm); border: 1px solid var(--line); overflow: hidden; box-shadow: 0 2px 8px oklch(0 0 0 / 0.35), 0 1px 0 oklch(1 0 0 / 0.03) inset; }
+.session-action-btn { flex: 1; padding: 9px 0; font-size: 10.5px; font-family: var(--mono); font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; }
+.session-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.session-action-btn.primary { background: var(--accent-soft); color: var(--accent); border-right: 1px solid var(--line); }
+.session-action-btn.primary:hover:not(:disabled) { background: oklch(0.62 0.19 222 / 0.22); }
+.session-action-btn.ghost { background: transparent; color: var(--text-3); }
+.session-action-btn.ghost:hover:not(:disabled) { background: var(--bg-2); color: var(--text-1); }
+.session-action-btn.cancel { background: oklch(0.65 0.20 25 / 0.08); color: var(--c-red); }
+.session-action-btn.cancel:hover:not(:disabled) { background: oklch(0.65 0.20 25 / 0.16); }
 
 /* analytics */
 .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 8px 40px 0; }
