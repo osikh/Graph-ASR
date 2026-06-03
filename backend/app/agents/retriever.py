@@ -1,6 +1,5 @@
 import json
-import litellm
-from app.config import cfg
+from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent
@@ -15,15 +14,17 @@ facts and evidence for each. Respond with valid JSON only."""
 PROMPT = """Concepts to retrieve: {concepts}
 Question context: {question}
 
-For each concept return a JSON object in this array:
-[
-  {{
-    "id": "snake_case_id",
-    "label": "Display Label",
-    "description": "factual description (1-2 sentences)",
-    "evidence": ["fact1", "fact2"]
-  }}
-]"""
+Return JSON with key "concepts" containing an array:
+{{
+  "concepts": [
+    {{
+      "id": "snake_case_id",
+      "label": "Display Label",
+      "description": "factual description (1-2 sentences)",
+      "evidence": ["fact1", "fact2"]
+    }}
+  ]
+}}"""
 
 
 async def run_retriever(state: ARSState) -> ARSState:
@@ -37,10 +38,7 @@ async def run_retriever(state: ARSState) -> ARSState:
         log="retrieval initiated",
     ))
 
-    resp = await litellm.acompletion(
-        model=cfg.llm_model,
-        api_key=cfg.llm_api_key or None,
-        api_base=cfg.llm_api_base or None,
+    raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user",   "content": PROMPT.format(
@@ -48,25 +46,19 @@ async def run_retriever(state: ARSState) -> ARSState:
                 question=state["question"],
             )},
         ],
-        response_format={"type": "json_object"},
         temperature=0.2,
     )
-
-    raw = resp.choices[0].message.content
-    # model may return {"concepts": [...]} or a bare array — normalise
     parsed = json.loads(raw)
-    retrieved: list[dict] = parsed if isinstance(parsed, list) else parsed.get("concepts", [])
+    retrieved: list[dict] = parsed.get("concepts", [])
 
-    # persist to graph
     for c in retrieved:
         await graph_db.upsert_node(sid, c["id"], c["label"], "concept", description=c.get("description", ""))
         await emit_graph_update(sid, node={"id": c["id"], "label": c["label"], "type": "concept"})
 
-    names = [c["label"] for c in retrieved]
     await emit(AgentEvent(
         session_id=sid, t=elapsed(sid), agent="retriever", kind="retrieve",
         title=f"Retrieved {len(retrieved)} concepts",
-        lines=[f"✓ {n} — bound" for n in names],
+        lines=[f"✓ {c['label']} — bound" for c in retrieved],
         log=f"graph updated · +{len(retrieved)} nodes",
     ))
 

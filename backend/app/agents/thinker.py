@@ -1,7 +1,6 @@
 import json
-import litellm
 from uuid import uuid4
-from app.config import cfg
+from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent, Claim
@@ -32,10 +31,7 @@ async def run_thinker(state: ARSState) -> ARSState:
     sid = state["session_id"]
     concepts = [c["label"] for c in state.get("retrieved_concepts", [])]
 
-    resp = await litellm.acompletion(
-        model=cfg.llm_model,
-        api_key=cfg.llm_api_key or None,
-        api_base=cfg.llm_api_base or None,
+    raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user",   "content": PROMPT.format(
@@ -43,11 +39,8 @@ async def run_thinker(state: ARSState) -> ARSState:
                 concepts=", ".join(concepts),
             )},
         ],
-        response_format={"type": "json_object"},
         temperature=0.5,
     )
-
-    raw = resp.choices[0].message.content
     parsed = json.loads(raw)
     raw_claims: list[dict] = parsed.get("claims", [])
 
@@ -63,13 +56,12 @@ async def run_thinker(state: ARSState) -> ARSState:
 
         await graph_db.upsert_node(sid, claim.id, claim.text[:60], "claim")
         await emit_graph_update(sid, node={"id": claim.id, "label": claim.text[:60], "type": "claim"})
-
         await emit(AgentEvent(
             session_id=sid, t=elapsed(sid), agent="thinker", kind="claim",
             title="Hypothesis",
             lines=[claim.text, rc.get("reasoning", "")],
             tag="claim",
-            log=f"thinker · hypothesis emitted",
+            log="thinker · hypothesis emitted",
         ))
 
     log.info("thinker.done", claims=len(claims))

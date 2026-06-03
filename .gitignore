@@ -1,3 +1,6 @@
 .claude
 .claudeDesign
 /requirements_*.md
+
+backend/venv/
+backend/_pycache_/

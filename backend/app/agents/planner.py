@@ -1,6 +1,5 @@
 import json
-import litellm
-from app.config import cfg
+from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, elapsed
 from app.models.schemas import AgentEvent
@@ -23,28 +22,21 @@ Return JSON:
 
 async def run_planner(state: ARSState) -> ARSState:
     sid = state["session_id"]
-    t = elapsed(sid)
 
     await emit(AgentEvent(
-        session_id=sid, t=t, agent="planner", kind="think",
+        session_id=sid, t=elapsed(sid), agent="planner", kind="think",
         title="Decomposing query",
         lines=[f"Goal → {state['question']}", "Strategy: identify governing relation, then required quantities."],
         log=f"planner.start · decomposing: {state['question'][:60]}",
     ))
 
-    resp = await litellm.acompletion(
-        model=cfg.llm_model,
-        api_key=cfg.llm_api_key or None,
-        api_base=cfg.llm_api_base or None,
+    raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user",   "content": PROMPT.format(question=state["question"])},
         ],
-        response_format={"type": "json_object"},
         temperature=0.3,
     )
-
-    raw = resp.choices[0].message.content
     parsed = json.loads(raw)
     concepts: list[str] = parsed.get("required_concepts", [])
     strategy: str = parsed.get("strategy", "")

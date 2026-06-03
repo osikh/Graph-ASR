@@ -1,6 +1,5 @@
 import json
-import litellm
-from app.config import cfg
+from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, elapsed
 from app.models.schemas import AgentEvent
@@ -35,24 +34,16 @@ async def run_debater(state: ARSState) -> ARSState:
     if not claims:
         return state
 
-    claims_text = "\n".join(f"[{c.id}] {c.text}" for c in claims)
-
-    resp = await litellm.acompletion(
-        model=cfg.llm_model,
-        api_key=cfg.llm_api_key or None,
-        api_base=cfg.llm_api_base or None,
+    raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user",   "content": PROMPT.format(
                 question=state["question"],
-                claims=claims_text,
+                claims="\n".join(f"[{c.id}] {c.text}" for c in claims),
             )},
         ],
-        response_format={"type": "json_object"},
         temperature=0.6,
     )
-
-    raw = resp.choices[0].message.content
     parsed = json.loads(raw)
     challenges: list[dict] = parsed.get("challenges", [])
 
