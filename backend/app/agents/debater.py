@@ -3,14 +3,15 @@ from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, elapsed
 from app.models.schemas import AgentEvent
+from app.context_compiler import compiler
 import structlog
 
 log = structlog.get_logger()
 
-SYSTEM = """You are the Debater agent. Stress-test reasoning claims by finding counter-arguments,
-edge cases, and missing variables. Be rigorous. Respond with valid JSON only."""
+SYSTEM = """You are the Debater agent. Stress-test reasoning claims by finding counter-arguments, edge cases, and missing variables. Be rigorous. Respond with valid JSON only."""
 
-PROMPT = """Question: {question}
+PROMPT = """{context}
+
 Claims to challenge:
 {claims}
 
@@ -31,15 +32,18 @@ For each claim find the strongest counter-argument. Return JSON:
 async def run_debater(state: ARSState) -> ARSState:
     if "debater" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
-    claims = state.get("claims", [])[-4:]  # most recent 4 claims only
+    claims = state.get("claims", [])[-4:]
     if not claims:
         return state
+
+    ctx = await compiler.build(sid, "debater", state)
+    context_str = compiler.format_for_prompt(ctx)
 
     raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
-            {"role": "user",   "content": PROMPT.format(
-                question=state["question"],
+            {"role": "user", "content": PROMPT.format(
+                context=context_str,
                 claims="\n".join(f"[{c.id}] {c.text}" for c in claims),
             )},
         ],

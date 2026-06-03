@@ -5,14 +5,14 @@ from app.orchestration.state import ARSState
 from app.events.emitter import emit, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent, Claim
 from app.db import neo4j as graph_db
+from app.context_compiler import compiler
 import structlog
 
 log = structlog.get_logger()
 
-SYSTEM = """You are the Thinker agent. Form clear reasoning chains and hypotheses from provided concepts. Respond with valid JSON only."""
+SYSTEM = """You are the Thinker agent. Form clear reasoning chains and hypotheses from the provided context. Respond with valid JSON only."""
 
-PROMPT = """Question: {question}
-Concepts available: {concepts}
+PROMPT = """{context}
 
 Generate reasoning claims. For each claim list which concept ids it depends on. Return JSON:
 {{
@@ -20,8 +20,8 @@ Generate reasoning claims. For each claim list which concept ids it depends on. 
     {{
       "text": "the claim statement",
       "confidence": 0.0-1.0,
-      "reasoning": "why this claim follows from the concepts",
-      "depends_on": ["concept_id_1", "concept_id_2"]
+      "reasoning": "why this claim follows from the context",
+      "depends_on": ["concept_id_1"]
     }}
   ]
 }}"""
@@ -30,14 +30,17 @@ Generate reasoning claims. For each claim list which concept ids it depends on. 
 async def run_thinker(state: ARSState) -> ARSState:
     if "thinker" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
+
+    ctx = await compiler.build(sid, "thinker", state)
+    context_str = compiler.format_for_prompt(ctx)
+
     retrieved = state.get("retrieved_concepts", [])
-    concepts = [c["label"] for c in retrieved]
     concept_ids = {c["label"].lower().replace(" ", "_"): c["id"] for c in retrieved}
 
     raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": PROMPT.format(question=state["question"], concepts=", ".join(concepts))},
+            {"role": "user", "content": PROMPT.format(context=context_str)},
         ],
         temperature=0.5,
     )

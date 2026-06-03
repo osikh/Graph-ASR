@@ -26,6 +26,9 @@ class ARSState(TypedDict):
     final_answer: str
     final_sources: list[str]
 
+    # context management
+    episodic_summary: list[dict]
+
     # bookkeeping
     iteration: int
     max_iterations: int

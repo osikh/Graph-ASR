@@ -12,6 +12,8 @@ from app.agents.synthesizer import run_synthesizer
 from app.events.emitter import emit_session_status, emit_sys, emit_graph_update, elapsed
 from app.models.schemas import SysEvent
 from app.db import neo4j as graph_db
+from app.memory import working
+from app.summarization import summarizer
 import structlog
 
 log = structlog.get_logger()
@@ -33,6 +35,18 @@ def _increment_iteration(state: ARSState) -> ARSState:
     return {**state, "iteration": state["iteration"] + 1}
 
 
+def _compress_cycle(state: ARSState) -> ARSState:
+    entry = summarizer.compress(state["session_id"], state)
+    ep = {
+        "cycle": entry.cycle,
+        "resolved_claims": entry.resolved_claims,
+        "open_questions": entry.open_questions,
+        "contradictions": entry.contradictions,
+        "confidence_at": entry.confidence_at,
+    }
+    return {**state, "episodic_summary": (state.get("episodic_summary") or []) + [ep]}
+
+
 def build_graph() -> StateGraph:
     g = StateGraph(ARSState)
 
@@ -44,6 +58,7 @@ def build_graph() -> StateGraph:
     g.add_node("chronicler",  run_chronicler)
     g.add_node("debater",     run_debater)
     g.add_node("evaluator",   run_evaluator)
+    g.add_node("compress",    _compress_cycle)
     g.add_node("inc_iter",    _increment_iteration)
     g.add_node("synthesizer", run_synthesizer)
 
@@ -55,7 +70,8 @@ def build_graph() -> StateGraph:
     g.add_edge("dogmatist",  "chronicler")
     g.add_edge("chronicler", "debater")
     g.add_edge("debater",    "evaluator")
-    g.add_edge("evaluator", "inc_iter")
+    g.add_edge("evaluator",  "compress")
+    g.add_edge("compress",   "inc_iter")
 
     g.add_conditional_edges("inc_iter", _route_after_eval, {
         "saint":       "saint",
@@ -74,6 +90,8 @@ async def run_session(session_id: str, question: str, disabled_agents: list[str]
     await emit_session_status(session_id, "running")
     await emit_sys(SysEvent(session_id=session_id, t=0.0, log="session.init · graph snapshot restored"))
 
+    working.init(session_id, question, [])
+
     q_node_id = f"q_{session_id[:8]}"
     await graph_db.upsert_node(session_id, q_node_id, question[:80], "question")
     await emit_graph_update(session_id, node={"id": q_node_id, "label": question[:80], "type": "question"})
@@ -91,6 +109,7 @@ async def run_session(session_id: str, question: str, disabled_agents: list[str]
         "verdict":            "proceed",
         "final_answer":       "",
         "final_sources":      [],
+        "episodic_summary":   [],
         "iteration":          0,
         "max_iterations":     MAX_ITERATIONS,
         "disabled_agents":    disabled_agents or [],
@@ -99,6 +118,7 @@ async def run_session(session_id: str, question: str, disabled_agents: list[str]
     }
 
     final: ARSState = await ars_graph.ainvoke(initial)
+    working.clear(session_id)
 
     await emit_session_status(session_id, "complete")
     await emit_sys(SysEvent(

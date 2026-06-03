@@ -3,6 +3,7 @@ from app.lib import llm
 from app.orchestration.state import ARSState
 from app.events.emitter import emit, elapsed
 from app.models.schemas import AgentEvent
+from app.memory import working
 import structlog
 
 log = structlog.get_logger()
@@ -49,5 +50,6 @@ async def run_planner(state: ARSState) -> ARSState:
         log=f"planner · {len(concepts)} concept slots opened",
     ))
 
+    working.update(sid, active_concepts=concepts[:3])
     log.info("planner.done", concepts=concepts)
     return {**state, "required_concepts": concepts, "strategy": strategy}

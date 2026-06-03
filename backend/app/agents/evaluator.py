@@ -4,16 +4,20 @@ from app.orchestration.state import ARSState
 from app.events.emitter import emit, emit_confidence, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent, KnowledgeGap
 from app.db import neo4j as graph_db
+from app.context_compiler import compiler
 import structlog
 
 log = structlog.get_logger()
 
-SYSTEM = """You are the Evaluator agent. Score reasoning quality, detect knowledge gaps,
-and decide whether to proceed, retry, or synthesise. Respond with valid JSON only."""
+SYSTEM = """You are the Evaluator agent. Score reasoning quality, detect knowledge gaps, and decide whether to proceed, retry, or synthesise. Respond with valid JSON only."""
 
-PROMPT = """Question: {question}
-Claims: {claims}
-Challenges: {challenges}
+PROMPT = """{context}
+
+Claims this cycle:
+{claims}
+
+Challenges this cycle:
+{challenges}
 
 Evaluate the current reasoning state. Return JSON:
 {{
@@ -36,11 +40,14 @@ async def run_evaluator(state: ARSState) -> ARSState:
     claims = state.get("claims", [])[-4:]
     challenges = state.get("challenges", [])[-4:]
 
+    ctx = await compiler.build(sid, "evaluator", state)
+    context_str = compiler.format_for_prompt(ctx)
+
     raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
-            {"role": "user",   "content": PROMPT.format(
-                question=state["question"],
+            {"role": "user", "content": PROMPT.format(
+                context=context_str,
                 claims="\n".join(f"• {c.text}" for c in claims) or "none",
                 challenges="\n".join(f"• {ch.get('counter', '')}" for ch in challenges) or "none",
             )},
