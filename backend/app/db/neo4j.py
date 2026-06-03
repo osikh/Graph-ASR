@@ -68,6 +68,68 @@ async def get_concept(session_id: str, concept_id: str) -> dict | None:
         return record["props"] if record else None
 
 
+async def get_neighbors(session_id: str, concept_labels: list[str], limit: int = 5) -> list[dict]:
+    q = """
+    MATCH (n {session_id: $session_id})-[r]-(m {session_id: $session_id})
+    WHERE any(lbl IN $labels WHERE toLower(n.label) CONTAINS toLower(lbl))
+    RETURN DISTINCT m.id AS id, m.label AS label, m.type AS type, type(r) AS rel
+    LIMIT $limit
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q, session_id=session_id, labels=concept_labels, limit=limit)
+        return await result.data()
+
+
+async def get_dependencies(session_id: str, concept_labels: list[str], limit: int = 5) -> list[dict]:
+    q = """
+    MATCH (n {session_id: $session_id})-[:DEPENDS_ON]->(m)
+    WHERE any(lbl IN $labels WHERE toLower(n.label) CONTAINS toLower(lbl))
+    RETURN m.id AS id, m.label AS label, m.type AS type, coalesce(m.description, '') AS description
+    LIMIT $limit
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q, session_id=session_id, labels=concept_labels, limit=limit)
+        return await result.data()
+
+
+async def get_contradictions(session_id: str, limit: int = 3) -> list[dict]:
+    q = """
+    MATCH (a:Claim {session_id: $session_id})-[:CONTRADICTS]-(b:Claim {session_id: $session_id})
+    WHERE id(a) < id(b)
+    RETURN a.label AS claim_a, b.label AS claim_b
+    LIMIT $limit
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q, session_id=session_id, limit=limit)
+        return await result.data()
+
+
+async def get_prior_claims(session_id: str, limit: int = 4) -> list[str]:
+    q = """
+    MATCH (n:Claim {session_id: $session_id})
+    RETURN n.label AS label
+    ORDER BY n.created_at DESC
+    LIMIT $limit
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q, session_id=session_id, limit=limit)
+        return [r["label"] for r in await result.data()]
+
+
+async def get_cross_session_concepts(labels: list[str], exclude_session: str, limit: int = 3) -> list[dict]:
+    q = """
+    MATCH (n:Concept)
+    WHERE n.session_id <> $exclude_session
+      AND any(lbl IN $labels WHERE toLower(n.label) CONTAINS toLower(lbl))
+    RETURN n.id AS id, n.label AS label, coalesce(n.description, '') AS description
+    ORDER BY n.created_at DESC
+    LIMIT $limit
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q, exclude_session=exclude_session, labels=labels, limit=limit)
+        return await result.data()
+
+
 async def get_graph_snapshot(session_id: str) -> dict:
     q = """
     MATCH (n {session_id: $session_id})
