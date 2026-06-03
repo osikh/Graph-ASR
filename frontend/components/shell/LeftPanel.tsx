@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/store/session";
 import { AGENTS } from "@/lib/data";
+import DualRangeSlider from "@/components/ui/DualRangeSlider";
 
 const STATUS_COLOR: Record<string, string> = {
   running: "var(--c-blue)", complete: "var(--c-green)", failed: "var(--c-red)",
@@ -42,19 +43,14 @@ export default function LeftPanel() {
       <div className="lp-section">
         <div className="kicker">Active task</div>
 
-        <div style={{ margin: "9px 0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontSize: 10.5, color: "var(--text-3)", fontFamily: "var(--mono)", letterSpacing: "0.1em", textTransform: "uppercase" }}>stop threshold</span>
+        <div style={{ margin: "9px 0 8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 10.5, color: "var(--text-3)", fontFamily: "var(--mono)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Confidence Score</span>
             <span style={{ fontSize: 10.5, color: "var(--text-2)", fontFamily: "var(--mono)" }}>{confMin}% – {confMax}%</span>
           </div>
-          <input type="range" className="pb-range" min="0" max="100" value={confMin}
-            onChange={e => setConfRange(Number(e.target.value), confMax)}
-            style={{ "--pct": confMin + "%" } as React.CSSProperties} />
-          <input type="range" className="pb-range" min="0" max="100" value={confMax}
-            onChange={e => setConfRange(confMin, Number(e.target.value))}
-            style={{ "--pct": confMax + "%" } as React.CSSProperties} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: "var(--text-3)", fontFamily: "var(--mono)" }}>
-            <span>min</span><span>max</span>
+          <DualRangeSlider low={confMin} high={confMax} onChange={setConfRange} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 9.5, color: "var(--text-3)", fontFamily: "var(--mono)" }}>
+            <span>min</span><span>target</span>
           </div>
         </div>
 

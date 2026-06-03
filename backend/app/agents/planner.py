@@ -13,9 +13,9 @@ Always respond with valid JSON only."""
 
 PROMPT = """Question: {question}
 
-Return JSON:
+Return JSON with at most 3 core concepts:
 {{
-  "required_concepts": ["concept1", "concept2", ...],
+  "required_concepts": ["concept1", "concept2", "concept3"],
   "strategy": "one sentence describing the reasoning approach"
 }}"""
 

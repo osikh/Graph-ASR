@@ -30,3 +30,5 @@ class ARSState(TypedDict):
     iteration: int
     max_iterations: int
     disabled_agents: list[str]
+    conf_min: float
+    conf_max: float

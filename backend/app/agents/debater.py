@@ -31,7 +31,7 @@ For each claim find the strongest counter-argument. Return JSON:
 async def run_debater(state: ARSState) -> ARSState:
     if "debater" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
-    claims = state.get("claims", [])
+    claims = state.get("claims", [])[-4:]  # most recent 4 claims only
     if not claims:
         return state
 

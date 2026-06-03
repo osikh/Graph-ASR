@@ -27,13 +27,9 @@ def _extract_json(raw: str) -> str:
 async def _call(messages: list[dict], temperature: float, with_json_mode: bool) -> str:
     client = _make_client()
     kwargs: dict = {"model": cfg.llm_model, "messages": messages, "temperature": temperature}
-    if with_json_mode:
+    if with_json_mode and cfg.supports_json_mode:
         kwargs["response_format"] = {"type": "json_object"}
-    try:
-        resp = await client.chat.completions.create(**kwargs)
-    except Exception:
-        kwargs.pop("response_format", None)
-        resp = await client.chat.completions.create(**kwargs)
+    resp = await client.chat.completions.create(**kwargs)
     return resp.choices[0].message.content or ""
 
 
@@ -49,11 +45,16 @@ async def complete(messages: list[dict], temperature: float = 0.3, json_mode: bo
     except json.JSONDecodeError:
         log.warning("llm.invalid_json_retrying", raw=raw[:200])
 
+    # retry without the failed response in context — keeps tokens small
     retry_msgs = messages + [
-        {"role": "assistant", "content": raw},
-        {"role": "user", "content": "Your previous response was not valid JSON. Reply with ONLY a JSON object, no other text."},
+        {"role": "user", "content": "Reply with ONLY a JSON object. Start with { and end with }. No markdown, no explanation, no other text."},
     ]
     retry_raw = await _call(retry_msgs, temperature, False)
     result = _extract_json(retry_raw)
-    json.loads(result)
-    return result
+
+    try:
+        json.loads(result)
+        return result
+    except json.JSONDecodeError:
+        log.error("llm.json_failed_both_attempts", raw_preview=raw[:300])
+        raise ValueError(f"Model returned invalid JSON after 2 attempts. Preview: {raw[:200]}")

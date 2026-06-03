@@ -502,6 +502,14 @@
   .chart-row { grid-template-columns: 1fr; }
 }
 
+/* dual range slider */
+.dual-range { position: relative; height: 20px; }
+.dual-range-track { position: absolute; left: 0; right: 0; height: 5px; top: 50%; transform: translateY(-50%); background: var(--bg-3); border-radius: 4px; pointer-events: none; }
+.dual-range-fill { position: absolute; height: 100%; background: var(--accent); border-radius: 4px; }
+.dual-range-input { position: absolute; width: 100%; top: 0; left: 0; height: 20px; margin: 0; padding: 0; background: transparent; -webkit-appearance: none; appearance: none; outline: none; pointer-events: none; }
+.dual-range-input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: all; width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--accent); cursor: grab; box-shadow: 0 0 6px var(--accent-soft); }
+.dual-range-input::-moz-range-thumb { pointer-events: all; width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--accent); cursor: grab; border: none; }
+
 /* knowledge graph keyframes */
 @keyframes kg-pulse { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(2.4); } }
 [data-motion="off"] [style*="kg-pulse"] { animation: none !important; opacity: 0 !important; }

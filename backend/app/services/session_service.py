@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import SessionRow, SessionLocal
 from app.db import neo4j as graph_db
-from app.events.emitter import session_started, emit_session_status
+from app.events.emitter import session_started, emit_session_status, emit_sys
+from app.models.schemas import SysEvent
 from app.models.schemas import SessionResponse
 from app.orchestration.graph import run_session
 import structlog
@@ -32,7 +33,7 @@ async def list_sessions(db: AsyncSession, limit: int = 20) -> list[SessionRow]:
     return list(result.scalars().all())
 
 
-async def start_session(session_id: str, db: AsyncSession, disabled_agents: list[str] | None = None) -> None:
+async def start_session(session_id: str, db: AsyncSession, disabled_agents: list[str] | None = None, conf_min: float = 40.0, conf_max: float = 90.0) -> None:
     row = await get_session(session_id, db)
     if not row:
         raise ValueError(f"Session {session_id} not found")
@@ -43,13 +44,13 @@ async def start_session(session_id: str, db: AsyncSession, disabled_agents: list
     await db.commit()
 
     session_started(session_id)
-    asyncio.create_task(_run_and_persist(session_id, row.question, disabled_agents or []))
+    asyncio.create_task(_run_and_persist(session_id, row.question, disabled_agents or [], conf_min, conf_max))
 
 
-async def _run_and_persist(session_id: str, question: str, disabled_agents: list[str]) -> None:
+async def _run_and_persist(session_id: str, question: str, disabled_agents: list[str], conf_min: float = 40.0, conf_max: float = 90.0) -> None:
     async with SessionLocal() as db:
         try:
-            final = await run_session(session_id, question, disabled_agents)
+            final = await run_session(session_id, question, disabled_agents, conf_min, conf_max)
 
             graph = await graph_db.get_graph_snapshot(session_id)
             row = await get_session(session_id, db)
@@ -62,10 +63,11 @@ async def _run_and_persist(session_id: str, question: str, disabled_agents: list
                 await db.commit()
 
         except Exception as e:
-            log.error("session.failed", session_id=session_id, error=str(e))
-
-            # Bug 1 fix: always emit the failed status so the frontend unblocks
+            import traceback
+            err = str(e)
+            log.error("session.failed", session_id=session_id, error=err, trace=traceback.format_exc())
             await emit_session_status(session_id, "failed")
+            await emit_sys(SysEvent(session_id=session_id, t=0, log=f"✕ error: {err[:120]}"))
 
             try:
                 row = await get_session(session_id, db)

@@ -10,8 +10,11 @@ PROVIDER_URLS = {
 PROVIDER_DEFAULT_KEYS = {
     "lmstudio":   "lm-studio",
     "llamacpp":   "not-needed",
-    "openrouter": "",           # must be set in .env for openrouter
+    "openrouter": "",
 }
+
+# providers that reliably honour response_format: json_object
+PROVIDERS_WITH_JSON_MODE = {"openrouter"}
 
 
 class Settings(BaseSettings):
@@ -46,6 +49,10 @@ class Settings(BaseSettings):
     @property
     def resolved_api_key(self) -> str:
         return self.llm_api_key or PROVIDER_DEFAULT_KEYS.get(self.llm_provider, "lm-studio")
+
+    @property
+    def supports_json_mode(self) -> bool:
+        return self.llm_provider in PROVIDERS_WITH_JSON_MODE
 
 
 cfg = Settings()

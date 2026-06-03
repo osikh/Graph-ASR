@@ -61,6 +61,8 @@ class SessionResponse(BaseModel):
 class RunRequest(BaseModel):
     session_id: str
     disabled_agents: list[str] = []
+    conf_min: float = 30.0
+    conf_max: float = 90.0
 
 
 # ── LLM / reasoning ──────────────────────────────────────────────────────────

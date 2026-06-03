@@ -59,7 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [edges, setEdges] = useState<LiveEdge[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [confMin, setConfMin] = useState(30);
-  const [confMax, setConfMax] = useState(95);
+  const [confMax, setConfMax] = useState(80);
   const [intervention, setIntervention] = useState(false);
   const [disabledAgents, setDisabledAgents] = useState<string[]>([]);
 
@@ -147,8 +147,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus("running");
     startRef.current = Date.now();
     connectWs(session.id);
-    await api.runSession(session.id, disabledAgents);
-  }, [status, connectWs, disabledAgents]);
+    await api.runSession(session.id, disabledAgents, confMin, confMax);
+  }, [status, connectWs, disabledAgents, confMin, confMax]);
 
   return (
     <SessionCtx.Provider value={{

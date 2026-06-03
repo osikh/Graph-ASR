@@ -16,15 +16,15 @@ import structlog
 
 log = structlog.get_logger()
 
-MAX_ITERATIONS = 2
+MAX_ITERATIONS = 8
 
 
 def _route_after_eval(state: ARSState) -> str:
-    """Re-run thinker→debater→evaluator if gaps found and under iteration limit."""
-    if state["verdict"] == "done":
+    conf_pct = state["confidence"] * 100
+    if conf_pct >= state["conf_max"]:
         return "synthesizer"
     if state["iteration"] >= state["max_iterations"]:
-        log.warning("graph.max_iterations_reached", session_id=state["session_id"])
+        log.warning("graph.max_iterations_reached", session_id=state["session_id"], confidence=conf_pct)
         return "synthesizer"
     return "saint"
 
@@ -70,7 +70,7 @@ def build_graph() -> StateGraph:
 ars_graph = build_graph()
 
 
-async def run_session(session_id: str, question: str, disabled_agents: list[str] | None = None) -> ARSState:
+async def run_session(session_id: str, question: str, disabled_agents: list[str] | None = None, conf_min: float = 30.0, conf_max: float = 90.0) -> ARSState:
     await emit_session_status(session_id, "running")
     await emit_sys(SysEvent(session_id=session_id, t=0.0, log="session.init · graph snapshot restored"))
 
@@ -94,6 +94,8 @@ async def run_session(session_id: str, question: str, disabled_agents: list[str]
         "iteration":          0,
         "max_iterations":     MAX_ITERATIONS,
         "disabled_agents":    disabled_agents or [],
+        "conf_min":           conf_min,
+        "conf_max":           conf_max,
     }
 
     final: ARSState = await ars_graph.ainvoke(initial)

@@ -39,7 +39,7 @@ async def run_session(session_id: str, body: RunRequest = RunRequest(session_id=
         raise HTTPException(404, "Session not found")
     if row.status in ("running", "complete"):
         raise HTTPException(409, f"Session already {row.status}")
-    await svc.start_session(session_id, db, body.disabled_agents)
+    await svc.start_session(session_id, db, body.disabled_agents, body.conf_min, body.conf_max)
     return {"session_id": session_id, "status": "started"}
 
 

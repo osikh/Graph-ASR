@@ -37,7 +37,7 @@ Allowed relationship types: DEPENDS_ON, SUPPORTS, RELATED_TO, PART_OF"""
 async def run_retriever(state: ARSState) -> ARSState:
     if "retriever" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
-    concepts = state["required_concepts"]
+    concepts = state["required_concepts"][:3]  # cap at 3 — keeps response within token budget
     q_node_id = f"q_{sid[:8]}"
 
     await emit(AgentEvent(
