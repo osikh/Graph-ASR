@@ -1,4 +1,4 @@
-export type AgentId = "planner" | "retriever" | "thinker" | "debater" | "evaluator" | "synthesizer";
+export type AgentId = "planner" | "retriever" | "thinker" | "saint" | "dogmatist" | "chronicler" | "debater" | "evaluator" | "synthesizer";
 
 export type NodeType = "concept" | "evidence" | "claim" | "gap" | "answer";
 export type EdgeType = "depends" | "supports" | "evidence" | "gap" | "resolves" | "contradicts";

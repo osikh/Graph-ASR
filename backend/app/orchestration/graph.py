@@ -3,6 +3,9 @@ from app.orchestration.state import ARSState
 from app.agents.planner import run_planner
 from app.agents.retriever import run_retriever
 from app.agents.thinker import run_thinker
+from app.agents.saint import run_saint
+from app.agents.dogmatist import run_dogmatist
+from app.agents.chronicler import run_chronicler
 from app.agents.debater import run_debater
 from app.agents.evaluator import run_evaluator
 from app.agents.synthesizer import run_synthesizer
@@ -22,7 +25,7 @@ def _route_after_eval(state: ARSState) -> str:
     if state["iteration"] >= state["max_iterations"]:
         log.warning("graph.max_iterations_reached", session_id=state["session_id"])
         return "synthesizer"
-    return "thinker"
+    return "saint"
 
 
 def _increment_iteration(state: ARSState) -> ARSState:
@@ -35,20 +38,26 @@ def build_graph() -> StateGraph:
     g.add_node("planner",     run_planner)
     g.add_node("retriever",   run_retriever)
     g.add_node("thinker",     run_thinker)
+    g.add_node("saint",       run_saint)
+    g.add_node("dogmatist",   run_dogmatist)
+    g.add_node("chronicler",  run_chronicler)
     g.add_node("debater",     run_debater)
     g.add_node("evaluator",   run_evaluator)
     g.add_node("inc_iter",    _increment_iteration)
     g.add_node("synthesizer", run_synthesizer)
 
     g.set_entry_point("planner")
-    g.add_edge("planner",   "retriever")
-    g.add_edge("retriever", "thinker")
-    g.add_edge("thinker",   "debater")
-    g.add_edge("debater",   "evaluator")
+    g.add_edge("planner",    "retriever")
+    g.add_edge("retriever",  "thinker")
+    g.add_edge("thinker",    "saint")
+    g.add_edge("saint",      "dogmatist")
+    g.add_edge("dogmatist",  "chronicler")
+    g.add_edge("chronicler", "debater")
+    g.add_edge("debater",    "evaluator")
     g.add_edge("evaluator", "inc_iter")
 
     g.add_conditional_edges("inc_iter", _route_after_eval, {
-        "thinker":     "thinker",
+        "saint":       "saint",
         "synthesizer": "synthesizer",
     })
 

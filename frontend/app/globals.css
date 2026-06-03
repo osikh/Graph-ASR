@@ -30,6 +30,8 @@
     --c-red:    oklch(0.65 0.20 25);
     --c-cyan:   oklch(0.72 0.13 200);
     --c-pink:   oklch(0.70 0.17 340);
+    --c-gold:   oklch(0.78 0.14 88);
+    --c-indigo: oklch(0.62 0.17 272);
 
     --radius: 10px;
     --radius-sm: 7px;

@@ -3,12 +3,15 @@ import type { Agent, AgentId, GraphNode, GraphEdge, ConfidencePoint, AgentEvent,
 export const DURATION = 46;
 
 export const AGENTS: Agent[] = [
-  { id: "planner",     name: "Planner",     color: "var(--c-blue)",   glyph: "◇", role: "Decomposes the query into required concepts and a retrieval plan." },
-  { id: "retriever",   name: "Retriever",   color: "var(--c-cyan)",   glyph: "⤓", role: "Pulls concepts & evidence from the knowledge graph and external sources." },
-  { id: "thinker",     name: "Thinker",     color: "var(--c-purple)", glyph: "✶", role: "Forms hypotheses and chains of reasoning over retrieved knowledge." },
-  { id: "debater",     name: "Debater",     color: "var(--c-orange)", glyph: "⇄", role: "Stress-tests claims, surfaces counter-arguments and edge cases." },
-  { id: "evaluator",   name: "Evaluator",   color: "var(--c-green)",  glyph: "✓", role: "Scores reasoning, detects gaps & contradictions, gates the answer." },
-  { id: "synthesizer", name: "Synthesizer", color: "var(--c-pink)",   glyph: "❖", role: "Composes the final, sourced answer from validated reasoning." },
+  { id: "planner",     name: "Planner",     color: "var(--c-blue)",     glyph: "◇", role: "Decomposes the query into required concepts and a retrieval plan." },
+  { id: "retriever",   name: "Retriever",   color: "var(--c-cyan)",     glyph: "⤓", role: "Pulls concepts & evidence from the knowledge graph and external sources." },
+  { id: "thinker",     name: "Thinker",     color: "var(--c-purple)",   glyph: "✶", role: "Forms hypotheses and chains of reasoning over retrieved knowledge." },
+  { id: "saint",       name: "Saint",       color: "var(--c-gold)",     glyph: "✦", role: "Reasons only from peaceful, universally compassionate religious and spiritual texts." },
+  { id: "dogmatist",   name: "Dogmatist",   color: "var(--c-red)",      glyph: "⊗", role: "Defends a single belief system with cited reasoning. Rigid but evidence-backed." },
+  { id: "chronicler",  name: "Chronicler",  color: "var(--c-indigo)",   glyph: "❋", role: "Sources truth from myths, folklore, ancient oral traditions, and cultural memory." },
+  { id: "debater",     name: "Debater",     color: "var(--c-orange)",   glyph: "⇄", role: "Stress-tests all claims, surfaces counter-arguments and edge cases." },
+  { id: "evaluator",   name: "Evaluator",   color: "var(--c-green)",    glyph: "✓", role: "Scores reasoning, detects gaps & contradictions, gates the answer." },
+  { id: "synthesizer", name: "Synthesizer", color: "var(--c-pink)",     glyph: "❖", role: "Composes the final, sourced answer from validated reasoning." },
 ];
 
 export const AGENT: Record<AgentId, Agent> = Object.fromEntries(AGENTS.map(a => [a.id, a])) as Record<AgentId, Agent>;
