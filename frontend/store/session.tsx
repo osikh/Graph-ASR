@@ -167,7 +167,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setEvents([]); setSysLogs([]); setIntervention(false);
     nodeIndexRef.current = 0;
 
-    const [session, graph] = await Promise.all([api.getSession(id), api.getGraph(id)]);
+    const [session, graph, rawEvents] = await Promise.all([
+      api.getSession(id),
+      api.getGraph(id),
+      api.getSessionEvents(id).catch(() => [] as Record<string, unknown>[]),
+    ]);
 
     const newNodes: LiveNode[] = graph.nodes.map((n, i) => ({
       id: n.id, label: n.label, type: n.type ?? "concept",
@@ -184,6 +188,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setConfidence(session.confidence <= 1 ? session.confidence * 100 : session.confidence);
     setNodes(newNodes);
     setEdges(newEdges);
+    setEvents(rawEvents as unknown as AgentEvent[]);
   }, []);
 
   return (

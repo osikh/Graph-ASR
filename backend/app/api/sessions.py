@@ -51,6 +51,12 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
     await svc.delete_session(session_id, db)
 
 
+@router.get("/{session_id}/events")
+async def get_events(session_id: str, db: AsyncSession = Depends(get_db)):
+    rows = await svc.get_session_events(session_id, db)
+    return [row.payload for row in rows]
+
+
 @router.get("/{session_id}/graph")
 async def get_graph(session_id: str):
     return await graph_db.get_graph_snapshot(session_id)

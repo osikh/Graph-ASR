@@ -110,7 +110,7 @@ export default function KnowledgeGraph({ t = 0, liveNodes, liveEdges, selected, 
             if (!a || !b) return null;
             const meta = EDGE_META[e.type] ?? EDGE_META.depends;
             const solid = meta.dash === "0";
-            const draw = solid ? Math.min(1, Math.max(0, (t - e.t) / 0.7)) : 1;
+            const draw = isLive ? 1 : (solid ? Math.min(1, Math.max(0, (t - e.t) / 0.7)) : 1);
             const hi = selected === e.from || selected === e.to;
             return (
               <line

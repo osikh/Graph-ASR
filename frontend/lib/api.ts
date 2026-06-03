@@ -47,6 +47,9 @@ export const api = {
   getGraph: (id: string) =>
     get<{ nodes: { id: string; label: string; type: string }[]; edges: { from: string; to: string; type: string }[] }>(`/api/sessions/${id}/graph`),
 
+  getSessionEvents: (id: string) =>
+    get<Record<string, unknown>[]>(`/api/sessions/${id}/events`),
+
   deleteSession: (id: string) =>
     del(`/api/sessions/${id}`),
 

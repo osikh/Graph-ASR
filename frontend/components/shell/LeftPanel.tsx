@@ -105,11 +105,11 @@ export default function LeftPanel() {
             Run Again
           </button>
           <button
-            className={`session-action-btn ${status === "running" ? "cancel" : "ghost"}`}
-            onClick={!isActive ? handleSubmit : !isDone ? stopSession : handleNew}
+            className={`session-action-btn ${status === "running" && !input.trim() ? "cancel" : "ghost"}`}
+            onClick={input.trim() ? handleSubmit : !isActive ? handleSubmit : !isDone ? stopSession : handleNew}
             disabled={(!isActive && !input.trim()) || loading}
           >
-            {!isActive ? "Start" : !isDone ? "Cancel" : "New"}
+            {input.trim() ? "Start" : !isActive ? "Start" : !isDone ? "Cancel" : "New"}
           </button>
         </div>
       </div>

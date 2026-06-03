@@ -1,12 +1,17 @@
 import time
+from uuid import uuid4
 from app.websocket.manager import ws_manager
 from app.models.schemas import AgentEvent, SysEvent
 import structlog
 
 log = structlog.get_logger()
 
-# tracks session start timestamps to compute relative `t`
 _start_times: dict[str, float] = {}
+_event_buffer: dict[str, list[dict]] = {}
+
+
+def pop_event_buffer(session_id: str) -> list[dict]:
+    return _event_buffer.pop(session_id, [])
 
 
 def session_started(session_id: str) -> None:
@@ -21,6 +26,15 @@ def elapsed(session_id: str) -> float:
 async def emit(event: AgentEvent) -> None:
     payload = {"type": "agent_event", **event.model_dump()}
     await ws_manager.broadcast(event.session_id, payload)
+    _event_buffer.setdefault(event.session_id, []).append({
+        "id": str(uuid4()),
+        "session_id": event.session_id,
+        "t": event.t,
+        "agent": event.agent,
+        "kind": event.kind,
+        "title": event.title,
+        "payload": event.model_dump(),
+    })
     log.info("event.emitted", agent=event.agent, kind=event.kind, title=event.title)
 
 

@@ -3,9 +3,9 @@ from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.postgres import SessionRow, SessionLocal
+from app.db.postgres import SessionRow, EventRow, SessionLocal
 from app.db import neo4j as graph_db
-from app.events.emitter import session_started, emit_session_status, emit_sys
+from app.events.emitter import session_started, emit_session_status, emit_sys, pop_event_buffer
 from app.models.schemas import SysEvent
 from app.models.schemas import SessionResponse
 from app.orchestration.graph import run_session
@@ -42,6 +42,21 @@ async def delete_session(session_id: str, db: AsyncSession) -> None:
     log.info("session.deleted", id=session_id)
 
 
+async def get_session_events(session_id: str, db: AsyncSession) -> list[EventRow]:
+    result = await db.execute(
+        select(EventRow).where(EventRow.session_id == session_id).order_by(EventRow.t)
+    )
+    return list(result.scalars().all())
+
+
+async def _flush_events(session_id: str, db: AsyncSession) -> None:
+    for e in pop_event_buffer(session_id):
+        db.add(EventRow(
+            id=e["id"], session_id=e["session_id"], t=e["t"],
+            agent=e["agent"], kind=e["kind"], title=e["title"], payload=e["payload"],
+        ))
+
+
 async def start_session(session_id: str, db: AsyncSession, disabled_agents: list[str] | None = None, conf_min: float = 40.0, conf_max: float = 90.0) -> None:
     row = await get_session(session_id, db)
     if not row:
@@ -69,7 +84,8 @@ async def _run_and_persist(session_id: str, question: str, disabled_agents: list
                 row.node_count = len(graph.get("nodes", []))
                 row.edge_count = len(graph.get("edges", []))
                 row.updated_at = datetime.utcnow()
-                await db.commit()
+            await _flush_events(session_id, db)
+            await db.commit()
 
         except Exception as e:
             import traceback
@@ -82,7 +98,8 @@ async def _run_and_persist(session_id: str, question: str, disabled_agents: list
                 row = await get_session(session_id, db)
                 if row:
                     row.status = "failed"
-                    await db.commit()
+                await _flush_events(session_id, db)
+                await db.commit()
             except Exception:
                 pass
 
