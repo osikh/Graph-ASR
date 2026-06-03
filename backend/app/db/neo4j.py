@@ -95,7 +95,7 @@ async def get_dependencies(session_id: str, concept_labels: list[str], limit: in
 async def get_contradictions(session_id: str, limit: int = 3) -> list[dict]:
     q = """
     MATCH (a:Claim {session_id: $session_id})-[:CONTRADICTS]-(b:Claim {session_id: $session_id})
-    WHERE id(a) < id(b)
+    WHERE a.id < b.id
     RETURN a.label AS claim_a, b.label AS claim_b
     LIMIT $limit
     """
