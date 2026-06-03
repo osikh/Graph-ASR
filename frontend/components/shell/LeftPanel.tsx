@@ -4,7 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/store/session";
 import { AGENTS } from "@/lib/data";
-import { api } from "@/lib/api";
+
+const STATUS_COLOR: Record<string, string> = {
+  running:  "var(--c-blue)",
+  complete: "var(--c-green)",
+  failed:   "var(--c-red)",
+  idle:     "var(--text-3)",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  running:  "Running…",
+  complete: "Complete",
+  failed:   "Failed",
+};
 
 export default function LeftPanel() {
   const { status, question, events, nodes, submit } = useSession();
@@ -14,11 +26,12 @@ export default function LeftPanel() {
 
   const activeAgentId = (() => {
     if (status !== "running" || !events.length) return null;
-    const last = events[events.length - 1];
-    return last.agent;
+    return events[events.length - 1].agent;
   })();
 
   const gapsOpen = nodes.filter(n => n.type === "gap").length;
+  const isActive = status !== "idle";
+  const isDone = status === "complete" || status === "failed";
 
   async function handleSubmit() {
     const q = input.trim();
@@ -32,21 +45,30 @@ export default function LeftPanel() {
     }
   }
 
+  async function handleRestart() {
+    if (!question || status === "running") return;
+    setLoading(true);
+    try {
+      await submit(question);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <aside className="left-panel">
       <div className="lp-section">
         <div className="kicker">Active task</div>
+
         {question ? (
           <div className="task-box">
             <div className="task-q">{question}</div>
             <div className="task-meta mono">
               <span className={gapsOpen ? "tm-warn" : "tm-ok"}>
-                {gapsOpen ? `${gapsOpen} open gap${gapsOpen > 1 ? "s" : ""}` : "no open gaps"}
+                {gapsOpen ? `${gapsOpen} gap${gapsOpen > 1 ? "s" : ""}` : "no gaps"}
               </span>
               <span>·</span>
               <span>{events.length} events</span>
-              <span>·</span>
-              <span className={`tm-${status === "complete" ? "ok" : status === "failed" ? "warn" : ""}`}>{status}</span>
             </div>
           </div>
         ) : (
@@ -54,24 +76,54 @@ export default function LeftPanel() {
             No active session — ask a question below.
           </div>
         )}
-        <div className="prompt-row">
-          <input
-            className="prompt-input"
-            placeholder="Ask a question…"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()}
-            disabled={status === "running" || loading}
-          />
-          <button
-            className="prompt-go"
-            title="Run"
-            onClick={handleSubmit}
-            disabled={!input.trim() || status === "running" || loading}
-          >
-            {loading ? "…" : "↵"}
-          </button>
-        </div>
+
+        {/* input row — hidden while a session is active, replaced by status */}
+        {!isActive && (
+          <div className="prompt-row">
+            <input
+              className="prompt-input"
+              placeholder="Ask a question…"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            />
+            <button className="prompt-go" title="Run" onClick={handleSubmit} disabled={!input.trim() || loading}>
+              {loading ? "…" : "↵"}
+            </button>
+          </div>
+        )}
+
+        {/* status bar — visible while active */}
+        {isActive && (
+          <div className="prompt-row">
+            <div style={{
+              flex: 1, display: "flex", alignItems: "center", gap: 8,
+              background: "var(--bg-2)", border: "1px solid var(--line)",
+              borderRadius: "var(--radius-sm)", padding: "9px 11px",
+              fontSize: 12, fontFamily: "var(--mono)", color: STATUS_COLOR[status],
+            }}>
+              {status === "running" && (
+                <span className="dot live" style={{ background: "var(--c-blue)", boxShadow: "0 0 8px var(--c-blue)", flexShrink: 0 }} />
+              )}
+              {status === "complete" && <span style={{ fontSize: 13 }}>✓</span>}
+              {status === "failed"   && <span style={{ fontSize: 13 }}>✕</span>}
+              {STATUS_LABEL[status]}
+            </div>
+
+            {/* restart button — only when done */}
+            {isDone && (
+              <button
+                className="prompt-go"
+                title="Run again"
+                onClick={handleRestart}
+                disabled={loading}
+                style={{ fontSize: 16, lineHeight: 1 }}
+              >
+                ↺
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="lp-section grow">
