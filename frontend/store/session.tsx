@@ -191,6 +191,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setEvents(rawEvents as unknown as AgentEvent[]);
   }, []);
 
+  useEffect(() => {
+    api.listSessions().then(sessions => {
+      const running = sessions.find(s => s.status === "running");
+      if (!running) return;
+
+      setSessionId(running.id);
+      setQuestion(running.question);
+      setStatus("running");
+      startRef.current = Date.now();
+      connectWs(running.id);
+
+      api.getGraph(running.id).then(graph => {
+        const newNodes: LiveNode[] = graph.nodes.map((n, i) => ({
+          id: n.id, label: n.label, type: n.type ?? "concept",
+          ...autoPos(i), r: NODE_RADIUS[n.type] ?? 16, t: 0,
+        }));
+        const newEdges: LiveEdge[] = graph.edges.map(e => ({
+          from: e.from, to: e.to, type: e.type ?? "related", t: 0,
+        }));
+        nodeIndexRef.current = newNodes.length;
+        setNodes(newNodes);
+        setEdges(newEdges);
+      }).catch(() => {});
+    }).catch(() => {});
+  }, [connectWs]);
+
   return (
     <SessionCtx.Provider value={{
       sessionId, status, question, events, sysLogs, confidence, nodes, edges, elapsed,
