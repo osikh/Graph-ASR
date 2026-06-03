@@ -139,6 +139,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
 
     ws.onerror = () => setStatus("failed");
+
+    // Bug 3 fix: if WS closes before we got a terminal status, poll REST once
+    ws.onclose = () => {
+      setStatus(prev => {
+        if (prev === "running") {
+          api.getSession(sid)
+            .then(s => setStatus(s.status as SessionState["status"]))
+            .catch(() => setStatus("failed"));
+        }
+        return prev;
+      });
+    };
   }, []);
 
   const submit = useCallback(async (q: string) => {

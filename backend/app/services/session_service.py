@@ -3,9 +3,9 @@ from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.postgres import SessionRow
+from app.db.postgres import SessionRow, SessionLocal
 from app.db import neo4j as graph_db
-from app.events.emitter import session_started
+from app.events.emitter import session_started, emit_session_status
 from app.models.schemas import SessionResponse
 from app.orchestration.graph import run_session
 import structlog
@@ -33,7 +33,6 @@ async def list_sessions(db: AsyncSession, limit: int = 20) -> list[SessionRow]:
 
 
 async def start_session(session_id: str, db: AsyncSession) -> None:
-    """Kick off the reasoning pipeline in the background."""
     row = await get_session(session_id, db)
     if not row:
         raise ValueError(f"Session {session_id} not found")
@@ -44,30 +43,39 @@ async def start_session(session_id: str, db: AsyncSession) -> None:
     await db.commit()
 
     session_started(session_id)
-    asyncio.create_task(_run_and_persist(session_id, row.question, db))
+    # Bug 2 fix: pass only primitives — background task opens its own db session
+    asyncio.create_task(_run_and_persist(session_id, row.question))
 
 
-async def _run_and_persist(session_id: str, question: str, db: AsyncSession) -> None:
-    try:
-        final = await run_session(session_id, question)
+async def _run_and_persist(session_id: str, question: str) -> None:
+    # own fresh db session — the request session is already closed by the time we run
+    async with SessionLocal() as db:
+        try:
+            final = await run_session(session_id, question)
 
-        # update session row with final stats
-        graph = await graph_db.get_graph_snapshot(session_id)
-        row = await get_session(session_id, db)
-        if row:
-            row.status = "complete"
-            row.confidence = final.get("confidence", 0.0)
-            row.node_count = len(graph.get("nodes", []))
-            row.edge_count = len(graph.get("edges", []))
-            row.updated_at = datetime.utcnow()
-            await db.commit()
+            graph = await graph_db.get_graph_snapshot(session_id)
+            row = await get_session(session_id, db)
+            if row:
+                row.status = "complete"
+                row.confidence = final.get("confidence", 0.0)
+                row.node_count = len(graph.get("nodes", []))
+                row.edge_count = len(graph.get("edges", []))
+                row.updated_at = datetime.utcnow()
+                await db.commit()
 
-    except Exception as e:
-        log.error("session.failed", session_id=session_id, error=str(e))
-        row = await get_session(session_id, db)
-        if row:
-            row.status = "failed"
-            await db.commit()
+        except Exception as e:
+            log.error("session.failed", session_id=session_id, error=str(e))
+
+            # Bug 1 fix: always emit the failed status so the frontend unblocks
+            await emit_session_status(session_id, "failed")
+
+            try:
+                row = await get_session(session_id, db)
+                if row:
+                    row.status = "failed"
+                    await db.commit()
+            except Exception:
+                pass
 
 
 def to_response(row: SessionRow) -> SessionResponse:
