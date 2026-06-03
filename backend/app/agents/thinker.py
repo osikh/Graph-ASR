@@ -28,6 +28,7 @@ Generate reasoning claims. Return JSON:
 
 
 async def run_thinker(state: ARSState) -> ARSState:
+    if "thinker" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
     concepts = [c["label"] for c in state.get("retrieved_concepts", [])]
 

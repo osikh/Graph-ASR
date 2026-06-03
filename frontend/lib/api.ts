@@ -30,8 +30,8 @@ export const api = {
   createSession: (question: string) =>
     post<SessionResponse>("/api/sessions", { question }),
 
-  runSession: (id: string) =>
-    post<{ session_id: string; status: string }>(`/api/sessions/${id}/run`),
+  runSession: (id: string, disabledAgents: string[] = []) =>
+    post<{ session_id: string; status: string }>(`/api/sessions/${id}/run`, { session_id: id, disabled_agents: disabledAgents }),
 
   getSession: (id: string) =>
     get<SessionResponse>(`/api/sessions/${id}`),

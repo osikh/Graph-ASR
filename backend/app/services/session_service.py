@@ -32,7 +32,7 @@ async def list_sessions(db: AsyncSession, limit: int = 20) -> list[SessionRow]:
     return list(result.scalars().all())
 
 
-async def start_session(session_id: str, db: AsyncSession) -> None:
+async def start_session(session_id: str, db: AsyncSession, disabled_agents: list[str] | None = None) -> None:
     row = await get_session(session_id, db)
     if not row:
         raise ValueError(f"Session {session_id} not found")
@@ -43,15 +43,13 @@ async def start_session(session_id: str, db: AsyncSession) -> None:
     await db.commit()
 
     session_started(session_id)
-    # Bug 2 fix: pass only primitives — background task opens its own db session
-    asyncio.create_task(_run_and_persist(session_id, row.question))
+    asyncio.create_task(_run_and_persist(session_id, row.question, disabled_agents or []))
 
 
-async def _run_and_persist(session_id: str, question: str) -> None:
-    # own fresh db session — the request session is already closed by the time we run
+async def _run_and_persist(session_id: str, question: str, disabled_agents: list[str]) -> None:
     async with SessionLocal() as db:
         try:
-            final = await run_session(session_id, question)
+            final = await run_session(session_id, question, disabled_agents)
 
             graph = await graph_db.get_graph_snapshot(session_id)
             row = await get_session(session_id, db)

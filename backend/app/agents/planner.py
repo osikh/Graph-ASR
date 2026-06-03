@@ -21,6 +21,7 @@ Return JSON:
 
 
 async def run_planner(state: ARSState) -> ARSState:
+    if "planner" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
 
     await emit(AgentEvent(

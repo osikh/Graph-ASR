@@ -28,6 +28,7 @@ Return JSON with key "concepts" containing an array:
 
 
 async def run_retriever(state: ARSState) -> ARSState:
+    if "retriever" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
     concepts = state["required_concepts"]
 

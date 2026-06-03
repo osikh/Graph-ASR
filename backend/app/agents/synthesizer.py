@@ -24,6 +24,7 @@ Write the final answer. Return JSON:
 
 
 async def run_synthesizer(state: ARSState) -> ARSState:
+    if "synthesizer" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
     claims = state.get("claims", [])
     concepts = [c["label"] for c in state.get("retrieved_concepts", [])]

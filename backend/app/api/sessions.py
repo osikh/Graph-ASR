@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.db import neo4j as graph_db
 from app.websocket.manager import ws_manager
+from app.models.schemas import RunRequest
 from app.services import session_service as svc
 from app.models.schemas import SessionCreate, SessionResponse
 import structlog
@@ -32,13 +33,13 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{session_id}/run", status_code=202)
-async def run_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def run_session(session_id: str, body: RunRequest = RunRequest(session_id=""), db: AsyncSession = Depends(get_db)):
     row = await svc.get_session(session_id, db)
     if not row:
         raise HTTPException(404, "Session not found")
     if row.status in ("running", "complete"):
         raise HTTPException(409, f"Session already {row.status}")
-    await svc.start_session(session_id, db)
+    await svc.start_session(session_id, db, body.disabled_agents)
     return {"session_id": session_id, "status": "started"}
 
 

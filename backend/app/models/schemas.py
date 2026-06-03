@@ -60,6 +60,7 @@ class SessionResponse(BaseModel):
 
 class RunRequest(BaseModel):
     session_id: str
+    disabled_agents: list[str] = []
 
 
 # ── LLM / reasoning ──────────────────────────────────────────────────────────

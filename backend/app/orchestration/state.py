@@ -29,3 +29,4 @@ class ARSState(TypedDict):
     # bookkeeping
     iteration: int
     max_iterations: int
+    disabled_agents: list[str]

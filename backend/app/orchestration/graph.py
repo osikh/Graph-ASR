@@ -60,7 +60,7 @@ def build_graph() -> StateGraph:
 ars_graph = build_graph()
 
 
-async def run_session(session_id: str, question: str) -> ARSState:
+async def run_session(session_id: str, question: str, disabled_agents: list[str] | None = None) -> ARSState:
     await emit_session_status(session_id, "running")
     await emit_sys(SysEvent(session_id=session_id, t=0.0, log="session.init · graph snapshot restored"))
 
@@ -79,6 +79,7 @@ async def run_session(session_id: str, question: str) -> ARSState:
         "final_sources":      [],
         "iteration":          0,
         "max_iterations":     MAX_ITERATIONS,
+        "disabled_agents":    disabled_agents or [],
     }
 
     final: ARSState = await ars_graph.ainvoke(initial)

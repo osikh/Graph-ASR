@@ -31,6 +31,7 @@ Evaluate the current reasoning state. Return JSON:
 
 
 async def run_evaluator(state: ARSState) -> ARSState:
+    if "evaluator" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
     claims = state.get("claims", [])
     challenges = state.get("challenges", [])
