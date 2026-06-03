@@ -53,6 +53,16 @@ export const api = {
   getKnowledgeGraph: () =>
     get<{ nodes: { id: string; label: string; type: string; session_id: string }[]; edges: { from: string; to: string; type: string }[] }>("/api/graph"),
 
+  getAnalytics: () =>
+    get<{
+      total_sessions: number;
+      completed_sessions: number;
+      cards: { label: string; value: string; delta: string; good: boolean; spark: number[] }[];
+      agent_load: { id: string; calls: number }[];
+      graph_growth: number[];
+      conf_trend: number[];
+    }>("/api/analytics"),
+
   deleteSession: (id: string) =>
     del(`/api/sessions/${id}`),
 

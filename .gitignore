@@ -2,5 +2,6 @@
 .claudeDesign
 /requirements_*.md
 
+**/.env
 backend/venv/
 **/__pycache__/
