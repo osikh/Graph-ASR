@@ -32,6 +32,8 @@ interface SessionState {
   stopSession: () => void;
   toggleAgent: (id: string) => void;
   submit: (question: string) => Promise<void>;
+  reset: () => void;
+  loadSession: (id: string) => Promise<void>;
 }
 
 const SessionCtx = createContext<SessionState | null>(null);
@@ -150,11 +152,45 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await api.runSession(session.id, disabledAgents, confMin, confMax);
   }, [status, connectWs, disabledAgents, confMin, confMax]);
 
+  const reset = useCallback(() => {
+    wsRef.current?.close();
+    setSessionId(null);
+    setStatus("idle");
+    setQuestion("");
+    setEvents([]); setSysLogs([]); setConfidence(0); setNodes([]); setEdges([]);
+    setElapsed(0); setIntervention(false);
+    nodeIndexRef.current = 0;
+  }, []);
+
+  const loadSession = useCallback(async (id: string) => {
+    wsRef.current?.close();
+    setEvents([]); setSysLogs([]); setIntervention(false);
+    nodeIndexRef.current = 0;
+
+    const [session, graph] = await Promise.all([api.getSession(id), api.getGraph(id)]);
+
+    const newNodes: LiveNode[] = graph.nodes.map((n, i) => ({
+      id: n.id, label: n.label, type: n.type ?? "concept",
+      ...autoPos(i), r: NODE_RADIUS[n.type] ?? 16, t: 0,
+    }));
+    const newEdges: LiveEdge[] = graph.edges.map(e => ({
+      from: e.from, to: e.to, type: e.type ?? "related", t: 0,
+    }));
+
+    nodeIndexRef.current = newNodes.length;
+    setSessionId(id);
+    setQuestion(session.question);
+    setStatus(session.status as SessionState["status"]);
+    setConfidence(session.confidence <= 1 ? session.confidence * 100 : session.confidence);
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, []);
+
   return (
     <SessionCtx.Provider value={{
       sessionId, status, question, events, sysLogs, confidence, nodes, edges, elapsed,
       confMin, confMax, intervention, disabledAgents,
-      setConfRange, clearIntervention, stopSession, toggleAgent, submit,
+      setConfRange, clearIntervention, stopSession, toggleAgent, submit, reset, loadSession,
     }}>
       {children}
     </SessionCtx.Provider>

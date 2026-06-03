@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, type SessionResponse } from "@/lib/api";
+import type React from "react";
 
 const STATUS_META: Record<string, { col: string; lbl: string }> = {
   complete: { col: "var(--c-green)",  lbl: "Complete" },
@@ -23,16 +24,22 @@ function timeAgo(iso: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function SessionCard({ s, onOpen }: { s: SessionResponse; onOpen: () => void }) {
+function SessionCard({ s, onOpen, onDelete }: { s: SessionResponse; onOpen: () => void; onDelete: (e: React.MouseEvent) => void }) {
   const meta = STATUS_META[s.status] ?? STATUS_META.pending;
   const conf = Math.round(s.confidence * (s.confidence > 1 ? 1 : 100));
-  const isActive = s.status === "running" || s.status === "complete";
 
   return (
-    <button className={`sess-card ${s.status === "running" ? "active" : ""}`} onClick={isActive ? onOpen : undefined}>
+    <div className={`sess-card ${s.status === "running" ? "active" : ""}`} onClick={onOpen} style={{ cursor: "pointer" }}>
       <div className="sc-top">
         <span className="sc-status" style={{ color: meta.col }}>● {meta.lbl}</span>
-        <span className="sc-date mono">{timeAgo(s.created_at)}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="sc-date mono">{timeAgo(s.created_at)}</span>
+          <button className="sc-del" onClick={onDelete} title="Delete session">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <path d="M2 4h10M5 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M3 4l1 7a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l1-7M6 7v3M8 7v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div className="sc-title">{s.question}</div>
       <div className="sc-conf">
@@ -49,8 +56,8 @@ function SessionCard({ s, onOpen }: { s: SessionResponse; onOpen: () => void }) 
           <span>status</span>
         </div>
       </div>
-      {isActive && <div className="sc-open">Open in workspace →</div>}
-    </button>
+      <div className="sc-open">Open in workspace →</div>
+    </div>
   );
 }
 
@@ -66,6 +73,18 @@ export default function SessionsPage() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  function handleOpen(id: string) {
+    sessionStorage.setItem("ars_load_session_id", id);
+    router.push("/workspace");
+  }
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    setSessions(prev => prev.filter(s => s.id !== id));
+    try { await api.deleteSession(id); }
+    catch { setSessions(prev => [...prev]); }
+  }
 
   // poll while any session is running
   useEffect(() => {
@@ -108,7 +127,9 @@ export default function SessionsPage() {
       {!loading && sessions.length > 0 && (
         <div className="sess-grid">
           {sessions.map(s => (
-            <SessionCard key={s.id} s={s} onOpen={() => router.push("/workspace")} />
+            <SessionCard key={s.id} s={s}
+              onOpen={() => handleOpen(s.id)}
+              onDelete={(e) => handleDelete(e, s.id)} />
           ))}
         </div>
       )}

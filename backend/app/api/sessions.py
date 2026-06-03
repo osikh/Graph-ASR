@@ -43,6 +43,14 @@ async def run_session(session_id: str, body: RunRequest = RunRequest(session_id=
     return {"session_id": session_id, "status": "started"}
 
 
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    row = await svc.get_session(session_id, db)
+    if not row:
+        raise HTTPException(404, "Session not found")
+    await svc.delete_session(session_id, db)
+
+
 @router.get("/{session_id}/graph")
 async def get_graph(session_id: str):
     return await graph_db.get_graph_snapshot(session_id)

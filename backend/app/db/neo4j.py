@@ -130,6 +130,12 @@ async def get_cross_session_concepts(labels: list[str], exclude_session: str, li
         return await result.data()
 
 
+async def delete_session_graph(session_id: str) -> None:
+    q = "MATCH (n {session_id: $session_id}) DETACH DELETE n"
+    async with get_driver().session() as s:
+        await s.run(q, session_id=session_id)
+
+
 async def get_graph_snapshot(session_id: str) -> dict:
     q = """
     MATCH (n {session_id: $session_id})

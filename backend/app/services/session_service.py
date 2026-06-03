@@ -33,6 +33,15 @@ async def list_sessions(db: AsyncSession, limit: int = 20) -> list[SessionRow]:
     return list(result.scalars().all())
 
 
+async def delete_session(session_id: str, db: AsyncSession) -> None:
+    row = await get_session(session_id, db)
+    if row:
+        await db.delete(row)
+        await db.commit()
+    await graph_db.delete_session_graph(session_id)
+    log.info("session.deleted", id=session_id)
+
+
 async def start_session(session_id: str, db: AsyncSession, disabled_agents: list[str] | None = None, conf_min: float = 40.0, conf_max: float = 90.0) -> None:
     row = await get_session(session_id, db)
     if not row:

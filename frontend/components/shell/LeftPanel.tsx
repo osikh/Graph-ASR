@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function LeftPanel() {
-  const { status, question, events, nodes, confMin, confMax, disabledAgents, setConfRange, toggleAgent, submit } = useSession();
+  const { status, question, events, nodes, confMin, confMax, disabledAgents, setConfRange, toggleAgent, submit, reset } = useSession();
   const router = useRouter();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,6 +36,11 @@ export default function LeftPanel() {
     if (!question || status === "running") return;
     setLoading(true);
     try { await submit(question); } finally { setLoading(false); }
+  }
+
+  function handleNew() {
+    setInput("");
+    reset();
   }
 
   return (
@@ -69,18 +74,7 @@ export default function LeftPanel() {
           <div className="task-box" style={{ color: "var(--text-3)", fontSize: 13 }}>No active session.</div>
         )}
 
-        {!isActive && (
-          <div className="prompt-row">
-            <input className="prompt-input" placeholder="Ask a question…" value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-            <button className="prompt-go" title="Run" onClick={handleSubmit} disabled={!input.trim() || loading}>
-              {loading ? "…" : "↵"}
-            </button>
-          </div>
-        )}
-
-        {isActive && (
+        {isActive && !isDone && (
           <div className="prompt-row">
             <div style={{
               flex: 1, display: "flex", alignItems: "center", gap: 8,
@@ -88,15 +82,29 @@ export default function LeftPanel() {
               borderRadius: "var(--radius-sm)", padding: "9px 11px",
               fontSize: 12, fontFamily: "var(--mono)", color: STATUS_COLOR[status] ?? "var(--text-3)",
             }}>
-              {status === "running" && <span className="dot live" style={{ background: "var(--c-blue)", boxShadow: "0 0 8px var(--c-blue)", flexShrink: 0 }} />}
-              {status === "complete" && <span>✓</span>}
-              {status === "failed" && <span>✕</span>}
+              <span className="dot live" style={{ background: "var(--c-blue)", boxShadow: "0 0 8px var(--c-blue)", flexShrink: 0 }} />
               {STATUS_LABEL[status]}
             </div>
-            {isDone && (
-              <button className="prompt-go" title="Run again" onClick={handleRestart} disabled={loading} style={{ fontSize: 16 }}>↺</button>
-            )}
           </div>
+        )}
+
+        {(!isActive || isDone) && (
+          <>
+            <div className="prompt-row">
+              <input className="prompt-input" placeholder="Ask a question…" value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+              <button className="prompt-go" title="Run" onClick={handleSubmit} disabled={!input.trim() || loading}>
+                {loading ? "…" : "↵"}
+              </button>
+            </div>
+            {isDone && (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <button className="prompt-action-btn" onClick={handleRestart} disabled={loading}>↺ Run Again</button>
+                <button className="prompt-action-btn secondary" onClick={handleNew} disabled={loading}>New</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

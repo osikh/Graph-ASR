@@ -16,6 +16,11 @@ async function get<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function del(path: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+}
+
 export interface SessionResponse {
   id: string;
   question: string;
@@ -40,7 +45,10 @@ export const api = {
     get<SessionResponse[]>("/api/sessions"),
 
   getGraph: (id: string) =>
-    get<{ nodes: unknown[]; edges: unknown[] }>(`/api/sessions/${id}/graph`),
+    get<{ nodes: { id: string; label: string; type: string }[]; edges: { from: string; to: string; type: string }[] }>(`/api/sessions/${id}/graph`),
+
+  deleteSession: (id: string) =>
+    del(`/api/sessions/${id}`),
 
   wsUrl: (id: string) =>
     `${BASE.replace("http", "ws")}/api/sessions/${id}/ws`,
