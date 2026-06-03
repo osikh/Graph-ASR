@@ -1,8 +1,9 @@
 import json
 from app.lib import llm
 from app.orchestration.state import ARSState
-from app.events.emitter import emit, elapsed
+from app.events.emitter import emit, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent
+from app.db import neo4j as graph_db
 import structlog
 
 log = structlog.get_logger()
@@ -48,6 +49,13 @@ async def run_synthesizer(state: ARSState) -> ARSState:
     final_conf: float = float(parsed.get("confidence", state.get("confidence", 0.5)))
 
     sentences = [s.strip() for s in answer.split(".") if s.strip()]
+    answer_id = f"ans_{sid[:8]}"
+    q_node_id = f"q_{sid[:8]}"
+
+    await graph_db.upsert_node(sid, answer_id, answer[:80], "answer")
+    await graph_db.upsert_edge(sid, answer_id, q_node_id, "ANSWERS")
+    await emit_graph_update(sid, node={"id": answer_id, "label": answer[:80], "type": "answer"})
+    await emit_graph_update(sid, edge={"from_id": answer_id, "to_id": q_node_id, "type": "supports"})
 
     await emit(AgentEvent(
         session_id=sid, t=elapsed(sid), agent="synthesizer", kind="answer",

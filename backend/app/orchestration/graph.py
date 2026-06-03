@@ -9,8 +9,9 @@ from app.agents.chronicler import run_chronicler
 from app.agents.debater import run_debater
 from app.agents.evaluator import run_evaluator
 from app.agents.synthesizer import run_synthesizer
-from app.events.emitter import emit_session_status, emit_sys, elapsed
+from app.events.emitter import emit_session_status, emit_sys, emit_graph_update, elapsed
 from app.models.schemas import SysEvent
+from app.db import neo4j as graph_db
 import structlog
 
 log = structlog.get_logger()
@@ -72,6 +73,10 @@ ars_graph = build_graph()
 async def run_session(session_id: str, question: str, disabled_agents: list[str] | None = None) -> ARSState:
     await emit_session_status(session_id, "running")
     await emit_sys(SysEvent(session_id=session_id, t=0.0, log="session.init · graph snapshot restored"))
+
+    q_node_id = f"q_{session_id[:8]}"
+    await graph_db.upsert_node(session_id, q_node_id, question[:80], "question")
+    await emit_graph_update(session_id, node={"id": q_node_id, "label": question[:80], "type": "question"})
 
     initial: ARSState = {
         "session_id":         session_id,

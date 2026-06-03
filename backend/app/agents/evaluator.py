@@ -1,7 +1,7 @@
 import json
 from app.lib import llm
 from app.orchestration.state import ARSState
-from app.events.emitter import emit, emit_confidence, elapsed
+from app.events.emitter import emit, emit_confidence, emit_graph_update, elapsed
 from app.models.schemas import AgentEvent, KnowledgeGap
 from app.db import neo4j as graph_db
 import structlog
@@ -61,6 +61,7 @@ async def run_evaluator(state: ARSState) -> ARSState:
         )
         gaps.append(gap)
         await graph_db.upsert_node(sid, gap.id, f"{gap.concept_a} ↔ {gap.concept_b}", "gap")
+        await emit_graph_update(sid, node={"id": gap.id, "label": f"{gap.concept_a} ↔ {gap.concept_b}", "type": "gap"})
         await emit(AgentEvent(
             session_id=sid, t=elapsed(sid), agent="evaluator", kind="warning",
             title="Knowledge gap detected",

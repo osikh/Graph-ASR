@@ -3,6 +3,15 @@ from app.config import cfg
 
 _driver: AsyncDriver | None = None
 
+NODE_LABELS = {
+    "concept":      "Concept",
+    "evidence":     "Evidence",
+    "claim":        "Claim",
+    "gap":          "KnowledgeGap",
+    "answer":       "Answer",
+    "question":     "Question",
+}
+
 
 def get_driver() -> AsyncDriver:
     if _driver is None:
@@ -24,16 +33,14 @@ async def close_neo4j() -> None:
 
 async def _create_constraints() -> None:
     async with _driver.session() as s:
-        await s.run("CREATE CONSTRAINT concept_id IF NOT EXISTS FOR (n:Concept) REQUIRE n.id IS UNIQUE")
-        await s.run("CREATE CONSTRAINT claim_id IF NOT EXISTS FOR (n:Claim) REQUIRE n.id IS UNIQUE")
-        await s.run("CREATE CONSTRAINT gap_id IF NOT EXISTS FOR (n:KnowledgeGap) REQUIRE n.id IS UNIQUE")
+        for label in NODE_LABELS.values():
+            await s.run(f"CREATE CONSTRAINT {label.lower()}_id IF NOT EXISTS FOR (n:{label}) REQUIRE n.id IS UNIQUE")
 
-
-# ── Node / edge helpers ───────────────────────────────────────────────────────
 
 async def upsert_node(session_id: str, node_id: str, label: str, node_type: str, **props) -> None:
-    q = """
-    MERGE (n {id: $id, session_id: $session_id})
+    neo_label = NODE_LABELS.get(node_type, "Node")
+    q = f"""
+    MERGE (n:{neo_label} {{id: $id, session_id: $session_id}})
     ON CREATE SET n += $props, n.type = $type, n.label = $label, n.created_at = timestamp()
     ON MATCH  SET n += $props
     """
@@ -42,10 +49,11 @@ async def upsert_node(session_id: str, node_id: str, label: str, node_type: str,
 
 
 async def upsert_edge(session_id: str, from_id: str, to_id: str, rel_type: str) -> None:
+    safe_rel = rel_type.upper().replace(" ", "_")
     q = f"""
     MATCH (a {{id: $from_id, session_id: $session_id}})
     MATCH (b {{id: $to_id,   session_id: $session_id}})
-    MERGE (a)-[r:{rel_type.upper()}]->(b)
+    MERGE (a)-[r:{safe_rel}]->(b)
     ON CREATE SET r.created_at = timestamp()
     """
     async with get_driver().session() as s:

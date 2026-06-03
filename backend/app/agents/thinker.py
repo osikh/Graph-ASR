@@ -9,19 +9,19 @@ import structlog
 
 log = structlog.get_logger()
 
-SYSTEM = """You are the Thinker agent. Form clear reasoning chains and hypotheses from provided concepts.
-Respond with valid JSON only."""
+SYSTEM = """You are the Thinker agent. Form clear reasoning chains and hypotheses from provided concepts. Respond with valid JSON only."""
 
 PROMPT = """Question: {question}
 Concepts available: {concepts}
 
-Generate reasoning claims. Return JSON:
+Generate reasoning claims. For each claim list which concept ids it depends on. Return JSON:
 {{
   "claims": [
     {{
       "text": "the claim statement",
       "confidence": 0.0-1.0,
-      "reasoning": "why this claim follows from the concepts"
+      "reasoning": "why this claim follows from the concepts",
+      "depends_on": ["concept_id_1", "concept_id_2"]
     }}
   ]
 }}"""
@@ -30,15 +30,14 @@ Generate reasoning claims. Return JSON:
 async def run_thinker(state: ARSState) -> ARSState:
     if "thinker" in state.get("disabled_agents", []): return state
     sid = state["session_id"]
-    concepts = [c["label"] for c in state.get("retrieved_concepts", [])]
+    retrieved = state.get("retrieved_concepts", [])
+    concepts = [c["label"] for c in retrieved]
+    concept_ids = {c["label"].lower().replace(" ", "_"): c["id"] for c in retrieved}
 
     raw = await llm.complete(
         messages=[
             {"role": "system", "content": SYSTEM},
-            {"role": "user",   "content": PROMPT.format(
-                question=state["question"],
-                concepts=", ".join(concepts),
-            )},
+            {"role": "user", "content": PROMPT.format(question=state["question"], concepts=", ".join(concepts))},
         ],
         temperature=0.5,
     )
@@ -47,22 +46,22 @@ async def run_thinker(state: ARSState) -> ARSState:
 
     claims: list[Claim] = []
     for rc in raw_claims:
-        claim = Claim(
-            id=f"claim_{str(uuid4())[:6]}",
-            text=rc["text"],
-            confidence=float(rc.get("confidence", 0.5)),
-            agent="thinker",
-        )
+        claim = Claim(id=f"claim_{str(uuid4())[:6]}", text=rc["text"], confidence=float(rc.get("confidence", 0.5)), agent="thinker")
         claims.append(claim)
 
         await graph_db.upsert_node(sid, claim.id, claim.text[:60], "claim")
         await emit_graph_update(sid, node={"id": claim.id, "label": claim.text[:60], "type": "claim"})
+
+        for dep in rc.get("depends_on", []):
+            dep_id = concept_ids.get(dep.lower().replace(" ", "_"), dep)
+            await graph_db.upsert_edge(sid, claim.id, dep_id, "DEPENDS_ON")
+            await emit_graph_update(sid, edge={"from_id": claim.id, "to_id": dep_id, "type": "depends"})
+
         await emit(AgentEvent(
             session_id=sid, t=elapsed(sid), agent="thinker", kind="claim",
             title="Hypothesis",
             lines=[claim.text, rc.get("reasoning", "")],
-            tag="claim",
-            log="thinker · hypothesis emitted",
+            tag="claim", log="thinker · hypothesis emitted",
         ))
 
     log.info("thinker.done", claims=len(claims))
