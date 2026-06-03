@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { EVENTS, AGENT } from "@/lib/data";
-import { usePlayback } from "@/store/playback";
+import { useSession } from "@/store/session";
+import { AGENT } from "@/lib/data";
 import type { AgentEvent } from "@/types";
 
 const RT_META: Record<string, { c: string; k: string }> = {
@@ -22,13 +22,14 @@ function useEnter() {
 function RTNode({ s, last }: { s: AgentEvent; last: boolean }) {
   const enter = useEnter();
   const m = RT_META[s.kind];
+  const ag = AGENT[s.agent as keyof typeof AGENT];
   return (
     <div className="rt-node" style={{ "--ac": m.c } as React.CSSProperties}>
       {!last && <div className="rt-connector" />}
       <div className="rt-dot" style={{ background: m.c, boxShadow: `0 0 10px ${m.c}` }} />
       <div className={`rt-card${enter}`}>
         <div className="rt-tag" style={{ color: m.c }}>
-          {m.k}<span className="rt-by">{AGENT[s.agent].name}</span>
+          {m.k}<span className="rt-by">{ag?.name ?? s.agent}</span>
         </div>
         <div className="rt-text">{s.lines[0]}</div>
       </div>
@@ -37,8 +38,8 @@ function RTNode({ s, last }: { s: AgentEvent; last: boolean }) {
 }
 
 export default function ReasoningTree() {
-  const { t } = usePlayback();
-  const steps = EVENTS.filter(e => e.t <= t && ["claim", "warning", "success", "debate", "answer"].includes(e.kind));
+  const { events } = useSession();
+  const steps = events.filter(e => ["claim", "warning", "success", "debate", "answer"].includes(e.kind));
 
   if (!steps.length)
     return <div className="feed-empty"><p>The reasoning map builds as claims, evidence and contradictions accumulate.</p></div>;

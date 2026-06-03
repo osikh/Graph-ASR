@@ -1,37 +1,76 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AGENTS, EVENTS, NODES, SESSIONS } from "@/lib/data";
-import { usePlayback } from "@/store/playback";
-
-function activeAgent(t: number): string | null {
-  const past = EVENTS.filter(e => e.t <= t);
-  if (!past.length) return null;
-  const last = past[past.length - 1];
-  return (t - last.t < 2.6) ? last.agent : null;
-}
+import { useSession } from "@/store/session";
+import { AGENTS } from "@/lib/data";
+import { api } from "@/lib/api";
 
 export default function LeftPanel() {
-  const { t } = usePlayback();
+  const { status, question, events, nodes, submit } = useSession();
   const router = useRouter();
-  const act = activeAgent(t);
-  const gapsOpen = NODES.filter(n => n.type === "gap" && t >= n.t && !(n.resolvedAt && t >= n.resolvedAt)).length;
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const activeAgentId = (() => {
+    if (status !== "running" || !events.length) return null;
+    const last = events[events.length - 1];
+    return last.agent;
+  })();
+
+  const gapsOpen = nodes.filter(n => n.type === "gap").length;
+
+  async function handleSubmit() {
+    const q = input.trim();
+    if (!q || loading || status === "running") return;
+    setLoading(true);
+    setInput("");
+    try {
+      await submit(q);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <aside className="left-panel">
       <div className="lp-section">
         <div className="kicker">Active task</div>
-        <div className="task-box">
-          <div className="task-q">Why is gravity different on Earth and the Moon?</div>
-          <div className="task-meta mono">
-            <span className={gapsOpen ? "tm-warn" : "tm-ok"}>{gapsOpen ? `${gapsOpen} open gap` : "no open gaps"}</span>
-            <span>·</span>
-            <span>{EVENTS.filter(e => e.t <= t).length}/{EVENTS.length} steps</span>
+        {question ? (
+          <div className="task-box">
+            <div className="task-q">{question}</div>
+            <div className="task-meta mono">
+              <span className={gapsOpen ? "tm-warn" : "tm-ok"}>
+                {gapsOpen ? `${gapsOpen} open gap${gapsOpen > 1 ? "s" : ""}` : "no open gaps"}
+              </span>
+              <span>·</span>
+              <span>{events.length} events</span>
+              <span>·</span>
+              <span className={`tm-${status === "complete" ? "ok" : status === "failed" ? "warn" : ""}`}>{status}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="task-box" style={{ color: "var(--text-3)", fontSize: 13 }}>
+            No active session — ask a question below.
+          </div>
+        )}
         <div className="prompt-row">
-          <input className="prompt-input" placeholder="Ask a new question…" disabled />
-          <button className="prompt-go" title="Run">↵</button>
+          <input
+            className="prompt-input"
+            placeholder="Ask a question…"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSubmit()}
+            disabled={status === "running" || loading}
+          />
+          <button
+            className="prompt-go"
+            title="Run"
+            onClick={handleSubmit}
+            disabled={!input.trim() || status === "running" || loading}
+          >
+            {loading ? "…" : "↵"}
+          </button>
         </div>
       </div>
 
@@ -39,8 +78,8 @@ export default function LeftPanel() {
         <div className="kicker" style={{ marginBottom: 8 }}>Agents</div>
         <div className="agent-list">
           {AGENTS.map(a => {
-            const on = act === a.id;
-            const used = EVENTS.some(e => e.agent === a.id && e.t <= t);
+            const on = activeAgentId === a.id;
+            const used = events.some(e => e.agent === a.id);
             return (
               <div key={a.id} className={`agent-row ${on ? "on" : ""}`} title={a.role}>
                 <span className="ag-glyph" style={{ color: a.color, background: `color-mix(in oklch, ${a.color} ${on ? 22 : 12}%, var(--bg-1))` }}>
@@ -67,21 +106,8 @@ export default function LeftPanel() {
 
       <div className="lp-section">
         <div className="lp-head-row">
-          <div className="kicker">Recent sessions</div>
+          <div className="kicker">Sessions</div>
           <button className="lp-link" onClick={() => router.push("/sessions")}>All</button>
-        </div>
-        <div className="sess-mini">
-          {SESSIONS.slice(0, 4).map(s => (
-            <button
-              key={s.id}
-              className={`sess-mini-row ${s.active ? "active" : ""}`}
-              onClick={() => router.push("/sessions")}
-            >
-              <span className={`sess-status s-${s.status}`} />
-              <span className="sm-title">{s.title}</span>
-              <span className="sm-conf mono">{s.confidence}%</span>
-            </button>
-          ))}
         </div>
       </div>
     </aside>

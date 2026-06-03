@@ -3,4 +3,4 @@
 /requirements_*.md
 
 backend/venv/
-backend/_pycache_/
+**/__pycache__/

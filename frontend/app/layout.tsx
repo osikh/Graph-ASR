@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { PlaybackProvider } from "@/store/playback";
+import { SessionProvider } from "@/store/session";
 import TopNav from "@/components/shell/TopNav";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -17,10 +18,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${inter.variable} ${mono.variable}`}>
         <PlaybackProvider>
-          <div className="app">
-            <TopNav />
-            {children}
-          </div>
+          <SessionProvider>
+            <div className="app">
+              <TopNav />
+              {children}
+            </div>
+          </SessionProvider>
         </PlaybackProvider>
       </body>
     </html>

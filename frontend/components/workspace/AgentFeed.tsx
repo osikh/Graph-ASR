@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { EVENTS, AGENT } from "@/lib/data";
-import { usePlayback } from "@/store/playback";
+import { useSession } from "@/store/session";
+import { AGENT } from "@/lib/data";
 import type { AgentEvent } from "@/types";
 
 const KIND_ICON: Record<string, string> = {
@@ -12,16 +12,15 @@ const KIND_ICON: Record<string, string> = {
 
 function useEnter() {
   const [on, setOn] = useState(false);
-  useEffect(() => {
-    const id = setTimeout(() => setOn(true), 16);
-    return () => clearTimeout(id);
-  }, []);
+  useEffect(() => { const id = setTimeout(() => setOn(true), 16); return () => clearTimeout(id); }, []);
   return on ? " is-in" : "";
 }
 
 function AgentCard({ ev }: { ev: AgentEvent }) {
-  const ag = AGENT[ev.agent];
+  const ag = AGENT[ev.agent as keyof typeof AGENT];
   const enter = useEnter();
+  if (!ag) return null;
+
   const kindIcon = KIND_ICON[ev.kind] || "•";
   const accent =
     ev.kind === "warning" ? "var(--c-orange)" :
@@ -38,7 +37,7 @@ function AgentCard({ ev }: { ev: AgentEvent }) {
           {ag.name}
         </span>
         <span className="fc-kind" style={{ color: accent }}>{kindIcon} {ev.title}</span>
-        <span className="fc-time mono">+{ev.t.toFixed(0)}s</span>
+        <span className="fc-time mono">+{Number(ev.t).toFixed(0)}s</span>
       </div>
       <div className="fc-body">
         {ev.lines.map((l, i) => (
@@ -60,9 +59,7 @@ function AgentCard({ ev }: { ev: AgentEvent }) {
       {ev.sources && (
         <div className="fc-sources">
           <span className="kicker">Sourced from</span>
-          <div className="src-list">
-            {ev.sources.map((s, i) => <span key={i} className="chip">{s}</span>)}
-          </div>
+          <div className="src-list">{ev.sources.map((s, i) => <span key={i} className="chip">{s}</span>)}</div>
         </div>
       )}
     </div>
@@ -70,25 +67,32 @@ function AgentCard({ ev }: { ev: AgentEvent }) {
 }
 
 export default function AgentFeed() {
-  const { t } = usePlayback();
+  const { events, status } = useSession();
   const ref = useRef<HTMLDivElement>(null);
-  const events = EVENTS.filter(e => e.t <= t);
   const lastId = events.length ? events[events.length - 1].id : null;
 
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [lastId]);
 
+  if (status === "idle")
+    return (
+      <div className="feed-empty" style={{ margin: "auto" }}>
+        <div className="pending-dots"><span /><span /><span /></div>
+        <p>Ask a question above to start a reasoning session.</p>
+      </div>
+    );
+
   return (
     <div className="feed scroll" ref={ref}>
-      {events.length === 0 && (
+      {events.length === 0 && status === "running" && (
         <div className="feed-empty">
           <div className="pending-dots"><span /><span /><span /></div>
-          <p>Awaiting first agent action — press play.</p>
+          <p>Agents starting up…</p>
         </div>
       )}
       {events.map(ev => <AgentCard key={ev.id} ev={ev} />)}
-      {events.length > 0 && events.length < EVENTS.length && (
+      {status === "running" && events.length > 0 && (
         <div className="feed-thinking">
           <span className="dot live" /> agents working
           <span className="tdots"><i /><i /><i /></span>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { NODES, EDGES } from "@/lib/data";
 import { nodeState } from "@/lib/utils";
 import type { GraphNode, NodeState } from "@/types";
+import type { LiveNode, LiveEdge } from "@/store/session";
 
 export const TYPE_META: Record<string, { color: string; label: string }> = {
   concept:  { color: "var(--c-blue)",   label: "Concept" },
@@ -23,30 +24,35 @@ export const EDGE_META: Record<string, { color: string; dash: string; label: str
 };
 
 interface Props {
-  t: number;
+  // mock mode (demo/knowledge-explorer)
+  t?: number;
+  // live mode (active session) — when provided, overrides mock data
+  liveNodes?: LiveNode[];
+  liveEdges?: LiveEdge[];
   selected: string | null;
   onSelect: (id: string | null) => void;
   mini?: boolean;
 }
 
-function nodeColor(n: GraphNode, st: NodeState): string {
+function nodeColor(type: string, st: NodeState): string {
   if (st === "contradicted") return "var(--c-red)";
   if (st === "resolved" || st === "validated") return "var(--c-green)";
-  return TYPE_META[n.type].color;
+  return (TYPE_META[type] ?? TYPE_META.concept).color;
 }
 
-function nodeGlyph(n: GraphNode, st: NodeState): string {
-  if (n.type === "gap" && st === "gap") return "!";
-  if (n.type === "answer") return "★";
-  if (n.type === "evidence") return "·";
+function nodeGlyph(type: string, st: NodeState): string {
+  if (type === "gap" && st === "gap") return "!";
+  if (type === "answer") return "★";
+  if (type === "evidence") return "·";
   if (st === "contradicted") return "✕";
   if (st === "validated") return "✓";
   return "";
 }
 
-export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: Props) {
+export default function KnowledgeGraph({ t = 0, liveNodes, liveEdges, selected, onSelect, mini = false }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dim, setDim] = useState({ w: 600, h: 420 });
+  const isLive = !!liveNodes;
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -61,14 +67,32 @@ export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: 
   const pad = mini ? 30 : 46;
   const { w, h } = dim;
 
-  const pos = useMemo(() => {
+  // ── mock mode: compute positions from normalised x/y ─────────────────────
+  const mockPos = useMemo(() => {
+    if (isLive) return {};
     const m: Record<string, { x: number; y: number }> = {};
     NODES.forEach(n => { m[n.id] = { x: pad + n.x * (w - 2 * pad), y: pad + n.y * (h - 2 * pad) }; });
     return m;
-  }, [w, h, pad]);
+  }, [w, h, pad, isLive]);
 
-  const visNodes = NODES.filter(n => t >= n.t);
-  const visEdges = EDGES.filter(e => t >= e.t && pos[e.from] && pos[e.to]);
+  // ── live mode: compute positions from normalised x/y stored by session ctx
+  const livePos = useMemo(() => {
+    if (!liveNodes) return {};
+    const m: Record<string, { x: number; y: number }> = {};
+    liveNodes.forEach(n => { m[n.id] = { x: pad + n.x * (w - 2 * pad), y: pad + n.y * (h - 2 * pad) }; });
+    return m;
+  }, [liveNodes, w, h, pad]);
+
+  const pos = isLive ? livePos : mockPos;
+
+  // nodes/edges to render
+  const visNodes: (GraphNode | LiveNode)[] = isLive
+    ? (liveNodes ?? [])
+    : NODES.filter(n => t >= n.t);
+
+  const visEdges = isLive
+    ? (liveEdges ?? []).filter(e => pos[e.from] && pos[e.to])
+    : EDGES.filter(e => t >= e.t && pos[e.from] && pos[e.to]);
 
   return (
     <div ref={wrapRef} style={{ position: "absolute", inset: 0 }}>
@@ -83,7 +107,8 @@ export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: 
         <g>
           {visEdges.map((e, i) => {
             const a = pos[e.from], b = pos[e.to];
-            const meta = EDGE_META[e.type];
+            if (!a || !b) return null;
+            const meta = EDGE_META[e.type] ?? EDGE_META.depends;
             const solid = meta.dash === "0";
             const draw = solid ? Math.min(1, Math.max(0, (t - e.t) / 0.7)) : 1;
             const hi = selected === e.from || selected === e.to;
@@ -105,14 +130,15 @@ export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: 
         <g>
           {visNodes.map(n => {
             const p = pos[n.id];
-            const st = nodeState(n, t);
-            const color = nodeColor(n, st);
-            const fresh = t - n.t < 1.3;
-            const grow = Math.min(1, Math.max(0, (t - n.t) / 0.4));
-            const r = (n.r || 16) * (mini ? 0.82 : 1);
+            if (!p) return null;
+            const mockN = n as GraphNode;
+            const st: NodeState = !isLive ? nodeState(mockN, t) : "normal";
+            const color = nodeColor(n.type, st);
+            const fresh = isLive ? true : t - (mockN.t ?? 0) < 1.3;
+            const grow = isLive ? 1 : Math.min(1, Math.max(0, (t - (mockN.t ?? 0)) / 0.4));
+            const r = ((n as GraphNode).r || 16) * (mini ? 0.82 : 1);
             const isSel = selected === n.id;
             const dashed = st === "gap" || st === "contradicted";
-            const isPulse = fresh || st === "gap";
             return (
               <g
                 key={n.id}
@@ -120,7 +146,7 @@ export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: 
                 style={{ cursor: "pointer", opacity: grow }}
                 onClick={ev => { ev.stopPropagation(); onSelect(isSel ? null : n.id); }}
               >
-                {isPulse && (
+                {(fresh || st === "gap") && (
                   <circle r={r} fill="none" stroke={color} strokeWidth="1.5"
                     style={{
                       transformOrigin: "center",
@@ -140,7 +166,7 @@ export default function KnowledgeGraph({ t, selected, onSelect, mini = false }: 
                 />
                 <text textAnchor="middle" dy="0.34em" fontSize={r * 0.7}
                   fill={color} fontFamily="var(--mono)" style={{ pointerEvents: "none" }}>
-                  {nodeGlyph(n, st)}
+                  {nodeGlyph(n.type, st)}
                 </text>
                 {!mini && (
                   <text textAnchor="middle" y={r + 14} fontSize="11" fontWeight="600"

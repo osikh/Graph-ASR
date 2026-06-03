@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePlayback } from "@/store/playback";
-import { clock, visibleNodeCount } from "@/lib/utils";
+import { useSession } from "@/store/session";
 
 const NAV = [
   { id: "workspace", label: "Workspace", icon: "▦", href: "/workspace" },
@@ -15,8 +14,8 @@ const NAV = [
 
 export default function TopNav() {
   const pathname = usePathname();
-  const { t } = usePlayback();
-  const nodeCount = visibleNodeCount(t);
+  const { nodes, status, elapsed } = useSession();
+  const elapsedSec = (elapsed / 1000).toFixed(0).padStart(2, "0");
 
   return (
     <header className="topnav">
@@ -40,9 +39,11 @@ export default function TopNav() {
       </nav>
 
       <div className="nav-right">
-        <div className="sys-stat"><span style={{ color: "var(--c-blue)" }}>◈</span> {nodeCount} nodes</div>
-        <div className="sys-stat"><span className="dot live" />{" "}engine live</div>
-        <div className="sys-stat mono">{clock(t)}</div>
+        <div className="sys-stat"><span style={{ color: "var(--c-blue)" }}>◈</span> {nodes.length} nodes</div>
+        <div className="sys-stat">
+          <span className="dot live" style={{ background: status === "running" ? "var(--c-blue)" : "var(--c-green)" }} />
+          {status === "running" ? `${elapsedSec}s` : status}
+        </div>
         <div className="avatar">RA</div>
       </div>
     </header>
