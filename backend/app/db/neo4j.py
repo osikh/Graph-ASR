@@ -137,6 +137,26 @@ async def get_cross_session_concepts(labels: list[str], exclude_session: str, li
         return await result.data()
 
 
+async def get_full_graph() -> dict:
+    q = """
+    MATCH (n)
+    WHERE n.id IS NOT NULL AND n.label IS NOT NULL
+    OPTIONAL MATCH (n)-[r]->(m)
+    WHERE m.id IS NOT NULL
+    RETURN
+        collect(DISTINCT {id: n.id, label: n.label, type: coalesce(n.type, 'concept'), session_id: coalesce(n.session_id, '')}) AS nodes,
+        collect(DISTINCT {from: startNode(r).id, to: endNode(r).id, type: type(r)}) AS edges
+    """
+    async with get_driver().session() as s:
+        result = await s.run(q)
+        record = await result.single()
+        if not record:
+            return {"nodes": [], "edges": []}
+        nodes = [n for n in record["nodes"] if n.get("id") and n.get("label")]
+        edges = [e for e in record["edges"] if e.get("from") and e.get("to")]
+        return {"nodes": nodes, "edges": edges}
+
+
 async def delete_session_graph(session_id: str) -> None:
     q = "MATCH (n {session_id: $session_id}) DETACH DELETE n"
     async with get_driver().session() as s:

@@ -50,6 +50,9 @@ export const api = {
   getSessionEvents: (id: string) =>
     get<Record<string, unknown>[]>(`/api/sessions/${id}/events`),
 
+  getKnowledgeGraph: () =>
+    get<{ nodes: { id: string; label: string; type: string; session_id: string }[]; edges: { from: string; to: string; type: string }[] }>("/api/graph"),
+
   deleteSession: (id: string) =>
     del(`/api/sessions/${id}`),
 

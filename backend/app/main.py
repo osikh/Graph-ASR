@@ -6,7 +6,7 @@ import structlog
 from app.config import cfg
 from app.db.postgres import init_db, close_db
 from app.db.neo4j import init_neo4j, close_neo4j
-from app.api import sessions, health
+from app.api import sessions, health, graph
 
 log = structlog.get_logger()
 
@@ -39,6 +39,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(sessions.router, prefix="/api")
+app.include_router(graph.router, prefix="/api")
 
 
 @app.get("/")
