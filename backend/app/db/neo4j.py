@@ -34,7 +34,14 @@ async def close_neo4j() -> None:
 async def _create_constraints() -> None:
     async with _driver.session() as s:
         for label in NODE_LABELS.values():
-            await s.run(f"CREATE CONSTRAINT {label.lower()}_id IF NOT EXISTS FOR (n:{label}) REQUIRE n.id IS UNIQUE")
+            try:
+                await s.run(f"DROP CONSTRAINT {label.lower()}_id IF EXISTS")
+            except Exception:
+                pass
+            await s.run(
+                f"CREATE CONSTRAINT {label.lower()}_unique IF NOT EXISTS "
+                f"FOR (n:{label}) REQUIRE (n.id, n.session_id) IS UNIQUE"
+            )
 
 
 async def upsert_node(session_id: str, node_id: str, label: str, node_type: str, **props) -> None:

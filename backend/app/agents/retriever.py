@@ -83,7 +83,10 @@ async def run_retriever(state: ARSState) -> ARSState:
         await emit_graph_update(sid, edge={"from_id": c["id"], "to_id": q_node_id, "type": "required_for"})
 
     for h in graph_hits:
+        await graph_db.upsert_node(sid, h["id"], h["label"], "concept", description=h.get("description", ""))
+        await graph_db.upsert_edge(sid, h["id"], q_node_id, "REQUIRED_FOR")
         await emit_graph_update(sid, node={"id": h["id"], "label": h["label"], "type": "concept"})
+        await emit_graph_update(sid, edge={"from_id": h["id"], "to_id": q_node_id, "type": "required_for"})
 
     for r in relationships:
         if r.get("from") and r.get("to"):
